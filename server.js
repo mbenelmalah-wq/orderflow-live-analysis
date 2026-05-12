@@ -339,8 +339,7 @@ wss.on('connection', (ws) => {
 
     if (msg.type !== 'frame' || !msg.data) return;
 
-    const cumDeltaOverride = (msg.cum_delta_override !== undefined && msg.cum_delta_override !== null)
-      ? msg.cum_delta_override : null;
+    const cumDeltaSign = msg.cum_delta_sign || 'auto'; // 'negative', 'positive', 'auto'
 
     send(ws, { type: 'analyzing' });
 
@@ -373,13 +372,12 @@ wss.on('connection', (ws) => {
               type: 'text',
               text: `Analyse ce chart Belkhayate OrderFlow NinjaTrader.
 
-${cumDeltaOverride !== null ? `
-!!! VALEUR CUM.DELTA FOURNIE PAR LE TRADER (PRIORITE ABSOLUE) !!!
-CUM.DELTA = ${cumDeltaOverride}
-NE PAS lire le tableau pour le Cum.Delta. Utilise UNIQUEMENT cette valeur : ${cumDeltaOverride}
-cum_delta_cell_color = "${cumDeltaOverride < 0 ? 'RED' : 'GREEN'}"
-cum_delta = ${cumDeltaOverride}
-Cette valeur a ete saisie manuellement par le trader depuis NinjaTrader. Elle est fiable a 100%.
+${cumDeltaSign !== 'auto' ? `
+!!! SIGNE CUM.DELTA CONFIRME PAR LE TRADER (PRIORITE ABSOLUE) !!!
+Le trader a regarde les cellules de la ligne Cum.Delta dans NinjaTrader.
+Les cellules sont ${cumDeltaSign === 'negative' ? 'ROUGES = valeur NEGATIVE' : 'VERTES = valeur POSITIVE'}.
+REGLE : lis le nombre dans la cellule Cum.Delta (ligne 3 depuis le bas), puis applique le signe ${cumDeltaSign === 'negative' ? 'NEGATIF (mets un - devant)' : 'POSITIF'}.
+cum_delta_cell_color = "${cumDeltaSign === 'negative' ? 'RED' : 'GREEN'}"
 ` : `
 RAPPELS AVANT ANALYSE :
 1. COULEUR CELLULE = SIGNE : rouge -> negatif, vert -> positif

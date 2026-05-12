@@ -231,13 +231,24 @@
         <button class="btn btn-crop" id="btnCrop" onclick="toggleCropMode()" style="display:none;" title="Dessine un rectangle pour sélectionner uniquement la zone du chart NinjaTrader">📐 Recadrer zone</button>
         <button class="btn btn-analyze" id="btnAnalyze" onclick="triggerAnalysis()" disabled>🔍 Analyser maintenant</button>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;padding:6px 0 2px 0;">
-        <label style="font-size:11px;color:#64748b;white-space:nowrap;">Cum.Delta (optionnel) :</label>
-        <input id="cumDeltaInput" type="number" placeholder="ex: -339"
-          style="width:100px;background:#1a1e28;border:1px solid #ffffff22;border-radius:5px;
-                 color:#e2e8f0;font-size:12px;padding:4px 8px;outline:none;"
-          title="Tape la valeur exacte du Cum.Delta visible dans NinjaTrader (avec le signe -)"/>
-        <span id="cumDeltaHint" style="font-size:10px;color:#64748b;">Valeur de NinjaTrader → override la lecture auto</span>
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 0 2px 0;flex-wrap:wrap;">
+        <span style="font-size:11px;color:#64748b;white-space:nowrap;">Cum.Delta :</span>
+        <button id="btnCumNeg" onclick="setCumSign('negative')"
+          style="padding:4px 14px;border-radius:5px;border:2px solid #f87171;background:#f8717120;
+                 color:#f87171;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;">
+          🔴 NÉGATIF
+        </button>
+        <button id="btnCumPos" onclick="setCumSign('positive')"
+          style="padding:4px 14px;border-radius:5px;border:2px solid #34d399;background:#34d39920;
+                 color:#34d399;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;">
+          🟢 POSITIF
+        </button>
+        <button id="btnCumAuto" onclick="setCumSign('auto')"
+          style="padding:4px 14px;border-radius:5px;border:2px solid #ffffff22;background:#1a1e28;
+                 color:#64748b;font-size:12px;cursor:pointer;transition:all .15s;">
+          AUTO
+        </button>
+        <span id="cumSignLabel" style="font-size:10px;color:#64748b;">Clique sur la couleur que tu vois dans NinjaTrader</span>
       </div>
       <div class="status-bar" id="statusBar">
         <span id="statusText">En attente de partage d'écran...</span>
@@ -278,6 +289,24 @@ let wsStatus = 'disconnected';
 let mediaStream = null;
 let isSharing = false;
 let isAnalyzing = false;
+let cumDeltaSign = 'auto'; // 'negative', 'positive', 'auto'
+
+function setCumSign(sign) {
+  cumDeltaSign = sign;
+  const negBtn = document.getElementById('btnCumNeg');
+  const posBtn = document.getElementById('btnCumPos');
+  const autoBtn = document.getElementById('btnCumAuto');
+  const label = document.getElementById('cumSignLabel');
+  negBtn.style.opacity = sign === 'negative' ? '1' : '0.4';
+  posBtn.style.opacity = sign === 'positive' ? '1' : '0.4';
+  autoBtn.style.opacity = sign === 'auto' ? '1' : '0.4';
+  negBtn.style.transform = sign === 'negative' ? 'scale(1.08)' : 'scale(1)';
+  posBtn.style.transform = sign === 'positive' ? 'scale(1.08)' : 'scale(1)';
+  if (sign === 'negative') label.textContent = '✅ Cum.Delta NÉGATIF injecté dans l\'analyse';
+  else if (sign === 'positive') label.textContent = '✅ Cum.Delta POSITIF injecté dans l\'analyse';
+  else label.textContent = 'Clique sur la couleur que tu vois dans NinjaTrader';
+  label.style.color = sign === 'negative' ? '#f87171' : sign === 'positive' ? '#34d399' : '#64748b';
+}
 const video = document.getElementById('screenVideo');
 const canvas = document.getElementById('capture');
 const ctx = canvas.getContext('2d');
@@ -563,11 +592,10 @@ function triggerAnalysis() {
 
   // PNG lossless = couleurs exactes (rouge/vert des cellules préservés)
   const imageData = canvas.toDataURL('image/png');
-  const cumDeltaOverride = document.getElementById('cumDeltaInput').value.trim();
   ws.send(JSON.stringify({
     type: 'frame',
     data: imageData,
-    cum_delta_override: cumDeltaOverride !== '' ? parseFloat(cumDeltaOverride) : null
+    cum_delta_sign: cumDeltaSign  // 'negative', 'positive', ou 'auto'
   }));
 }
 
