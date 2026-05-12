@@ -58,33 +58,32 @@ ORDRE CHRONOLOGIQUE — RÈGLE ABSOLUE :
   Le DERNIER chiffre de la séquence = bougie la plus à droite (la plus récente).
   JAMAIS mettre un delta ancien après un delta récent.
 
-TYPE B — STRUCTURE EXACTE DU TABLEAU (5 lignes, de haut en bas) :
-  ┌──────────────────────────────────────────────────────────┐
-  │ LIGNE 1 (top)  : Delta      = delta net par bougie       │
-  │ LIGNE 2        : Max. Delta = delta max de la bougie     │
-  │ LIGNE 3        : Min. Delta = delta min de la bougie     │
-  │ LIGNE 4        : Cum. Delta = delta CUMULÉ de la session │ ← CETTE LIGNE
-  │ LIGNE 5 (bas)  : Volume     = volume total par bougie    │
-  └──────────────────────────────────────────────────────────┘
+TYPE B — STRUCTURE EXACTE DU TABLEAU (ordre confirmé, de bas en haut) :
+  ┌──────────────────────────────────────────────────────────────────┐
+  │ LIGNE 5 (haut) : Delta      = delta net par bougie (ex: 23)     │
+  │ LIGNE 4        : Max. Delta = delta maximum de la bougie (ex:25) │
+  │ LIGNE 3        : Cum. Delta = delta CUMULÉ session (ex: -306)   │ ← PRIORITAIRE
+  │ LIGNE 2        : Min. Delta = delta minimum de la bougie (ex:-3) │
+  │ LIGNE 1 (bas)  : Volume     = volume total par bougie (ex: 69)  │
+  └──────────────────────────────────────────────────────────────────┘
 
   LECTURE DU CUM.DELTA — RÈGLE PRÉCISE :
-  → 4ème ligne depuis le haut = 2ème depuis le bas (juste au-dessus de Volume)
+  → C'est la 3ème ligne en partant du BAS (au-dessus de Min.Delta et Volume)
+  → C'est la ligne avec les GRANDES valeurs absolues (ex: -306, -1070, +726, -950...)
   → Lis la valeur de la colonne la plus à DROITE = bougie la plus récente
-  → Valeur typiquement grande en valeur absolue (ex: -306, -1070, +726...)
-  → NE PAS confondre avec ligne Delta (ligne 1 = valeurs petites) ni Min.Delta (ligne 3)
-  → Si tu vois une ligne avec des grandes valeurs comme -306, -710, -950 = c'est Cum.Delta
+  → NE PAS confondre avec Delta (ligne 5, haut, petites valeurs comme 23, -12, 7...)
 
   LECTURE DELTA/BOUGIE :
-  → Ligne 1 (Delta) : lis les 10 dernières valeurs de gauche à droite
+  → Ligne 5 (haut, Delta) : lis les 10 dernières valeurs de gauche à droite
 
   Flèches vertes ↑ = BUY | Flèches rouges ↓ = SELL
   Flèches bleues/cyan ↑ = BUY institutionnel | Flèches bleues/cyan ↓ = SELL institutionnel
 
-  ══ RÈGLE ABSOLUE — COULEUR = SIGNE ══
-  CELLULE VERTE = POSITIF  →  "306" vert  = +306
-  CELLULE ROUGE = NÉGATIF  →  "306" rouge = -306
-  Le tiret "-" peut être illisible ou absent → la COULEUR prime TOUJOURS.
-  Rouge = négatif. Sans exception.
+  ══ RÈGLE ABSOLUE — COULEUR = SIGNE (priorité sur tout) ══
+  CELLULE VERTE = valeur POSITIVE  →  "306" vert  = +306
+  CELLULE ROUGE = valeur NÉGATIVE  →  "306" rouge = -306
+  Le tiret "-" peut être illisible → la COULEUR prime TOUJOURS sur le signe visible.
+  Rouge = négatif. Sans aucune exception.
 
 ════════════════════════════════════════════════════════
 ÉTAPE 2 — LES 4 FILTRES INSTITUTIONNELS (dans cet ordre de priorité)
