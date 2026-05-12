@@ -76,7 +76,29 @@ TENDANCE DU PRIX (regarde les 15 dernieres bougies) :
 
 DELTA/BOUGIE (ligne 5) : lis les 10 dernieres valeurs gauche -> droite
   -> Renseigne "delta_recent_trend": "POSITIF" | "NEGATIF" | "MIXTE"
-     (les 3-4 dernieres bougies vont-elles dans le meme sens ?)
+  -> Calcule "delta_acceleration" : compare les 3 derniers vs les 3 precedents
+     Si les 3 derniers sont plus grands en absolu = ACCELERE
+     Si les 3 derniers sont plus petits en absolu = DECELERE
+     Sinon = STABLE
+
+LECTURE BID/ASK (lignes 6 et 7 - en haut du tableau) :
+  -> Lis les 5 dernieres valeurs de chaque ligne (colonnes les plus a droite)
+  -> Bid (ligne 6) = pression vendeuse passive (market makers offrent a vendre)
+  -> Ask (ligne 7) = pression acheteuse passive (market makers offrent a acheter)
+
+  CALCUL RATIO BID/ASK :
+  Pour chaque bougie : ratio = Ask / Bid
+  -> ratio > 1.5 = pression acheteuse forte (acheteurs agressifs dominent)
+  -> ratio < 0.7 = pression vendeuse forte (vendeurs agressifs dominent)
+  -> ratio entre 0.7 et 1.5 = equilibre
+
+  DETECTION D'INTENTION PAR ASYMETRIE :
+  Ask >> Bid + prix qui monte = CONFIRMATION ACHAT (institutionnels acheteurs actifs)
+  Ask >> Bid + prix qui ne monte pas = ABSORPTION VENTE (vendeurs cachent derriere les acheteurs)
+  Bid >> Ask + prix qui baisse = CONFIRMATION VENTE (institutionnels vendeurs actifs)
+  Bid >> Ask + prix qui ne baisse pas = ABSORPTION ACHAT (acheteurs cachent derriere les vendeurs)
+
+  Renseigne "bid_sequence" et "ask_sequence" : 5 dernieres valeurs gauche -> droite
 
 Fleches vertes UP = BUY | Fleches rouges DOWN = SELL
 Fleches cyan/bleues UP = BUY institutionnel | Fleches cyan/bleues DOWN = SELL institutionnel
@@ -181,9 +203,37 @@ POC = aimant a prix (prix revient toujours vers le POC)
   Prix au-dessus POC = structure haussiere
   Prix en-dessous POC = structure baissiere
 
-PILIER 5 - SIGNAUX DIRECTIONNELS (confirmation institutionnelle)
+PILIER 5 - INTENTION INSTITUTIONNELLE (Bid/Ask + acceleration Delta)
+---------------------------------------------------------------------
+C'est le signal le plus PRECOCE - il precede le mouvement de prix.
+
+LECTURE DE L'INTENTION PAR LA PHYSIQUE DES FLUX :
+
+  PRESSION NETTE = Ask_moyen - Bid_moyen (sur les 5 dernieres bougies)
+  -> Pression positive forte = acheteurs agressifs dominent = intention HAUSSIERE
+  -> Pression negative forte = vendeurs agressifs dominent = intention BAISSIERE
+
+  ACCELERATION DU DELTA :
+  -> Delta qui ACCELERE dans le sens de la tendance = momentum qui s'amplifie = continuer
+  -> Delta qui DECELERE = les institutionnels retirent leur pression = attention retournement
+
+  ASYMETRIE (signal le plus puissant) :
+  -> Ask eleve + prix IMMOBILE = des vendeurs cachent leurs ordres derriere les acheteurs
+     = PIEGE HAUSSIER = preparation d'une chute
+  -> Bid eleve + prix IMMOBILE = des acheteurs cachent leurs ordres derriere les vendeurs
+     = PIEGE BAISSIER = preparation d'une hausse
+
+  INTENTION FINALE :
+  ACHAT_FORT    : Ask >> Bid + Delta accelere positif + prix monte
+  ACHAT_CACHE   : Bid eleve + prix immobile ou descend legere = accumulation cachee = BUY imminent
+  VENTE_FORTE   : Bid >> Ask + Delta accelere negatif + prix baisse
+  VENTE_CACHEE  : Ask eleve + prix immobile ou monte leger = distribution cachee = SELL imminent
+  EQUILIBRE     : ratio Bid/Ask proche de 1 + delta stable = pas d'intention claire
+  TRANSITION    : acceleration change de sens = retournement en preparation
+
+PILIER 6 - SIGNAUX DIRECTIONNELS (confirmation institutionnelle)
 ---------------------------------------------------------------
-Les fleches ne declenchent PAS seules - elles CONFIRMENT les piliers 1-4.
+Les fleches ne declenchent PAS seules - elles CONFIRMENT les piliers 1-5.
 
 Fleche cyan/bleue UP = algorithme detecte accumulation institutionnelle
   -> Confirme une divergence haussiere ou une absorption acheteuse
@@ -277,6 +327,15 @@ FORMAT JSON - retourne exactement ceci, rien d'autre
   "delta_last": "derniere valeur delta (ex: -3)",
   "delta_sequence": "10 derniers deltas gauche vers droite",
   "delta_recent_trend": "POSITIF" ou "NEGATIF" ou "MIXTE",
+  "delta_acceleration": "ACCELERE" ou "DECELERE" ou "STABLE",
+
+  "bid_sequence": "5 dernieres valeurs Bid gauche vers droite",
+  "ask_sequence": "5 dernieres valeurs Ask gauche vers droite",
+  "bid_ask_pressure": "ACHAT_FORT" ou "ACHAT_MODERE" ou "EQUILIBRE" ou "VENTE_MODERE" ou "VENTE_FORTE",
+
+  "intention": "ACHAT_FORT" ou "ACHAT_CACHE" ou "VENTE_FORTE" ou "VENTE_CACHEE" ou "EQUILIBRE" ou "TRANSITION",
+  "intention_score": 0-100,
+  "intention_explanation": "explication precise : ratio Bid/Ask + acceleration + asymetrie observee",
 
   "buy_signals": nombre fleches BUY vertes,
   "sell_signals": nombre fleches SELL rouges,
@@ -304,7 +363,8 @@ FORMAT JSON - retourne exactement ceci, rien d'autre
     "pilier2_absorption": "Y a-t-il un niveau ou le prix tient malgre des deltas contraires ? Identification precise.",
     "pilier3_cum_delta_contexte": "Valeur Cum.Delta = X (cellule couleur). Contexte de session. Comment ce contexte modifie la lecture des autres piliers ?",
     "pilier4_value_area": "Position des bandes institutionnelles. VAH/VAL/POC par rapport au prix. Impact sur le biais directionnel.",
-    "pilier5_signaux": "Nombre et direction des fleches institutionnelles. Convergent-elles avec les piliers 1-4 ?",
+    "pilier5_intention": "Bid moyen vs Ask moyen sur 5 bougies. Ratio. Acceleration du Delta. Asymetrie detectee. Intention institutionnelle = ACHAT_CACHE/VENTE_CACHEE/FORT/EQUILIBRE. JUSTIFICATION.",
+    "pilier6_signaux": "Nombre et direction des fleches institutionnelles. Convergent-elles avec les piliers 1-5 ?",
     "synthese_finale": "En 3 phrases max : quel est LE signal dominant, pourquoi il prime sur les autres, quel est le risque principal."
   },
 

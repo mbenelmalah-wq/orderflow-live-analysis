@@ -609,6 +609,8 @@ function onSignal(p) {
   const absText = p.absorption_detected ? `✅ ${p.absorption_type ?? ''}` : '❌ Aucun';
   const divClass = p.divergence_type === 'HAUSSIERE' ? 'bull' : p.divergence_type === 'BAISSIERE' ? 'bear' : 'neutral';
   const trendClass = p.price_trend === 'UPTREND' ? 'bull' : p.price_trend === 'DOWNTREND' ? 'bear' : 'neutral';
+  const intentionClass = ['ACHAT_FORT','ACHAT_CACHE'].includes(p.intention) ? 'bull' : ['VENTE_FORTE','VENTE_CACHEE'].includes(p.intention) ? 'bear' : 'neutral';
+  const intentionIcon = p.intention === 'ACHAT_FORT' ? '⚡ ACHAT FORT' : p.intention === 'ACHAT_CACHE' ? '🔍 ACHAT CACHÉ' : p.intention === 'VENTE_FORTE' ? '⚡ VENTE FORTE' : p.intention === 'VENTE_CACHEE' ? '🔍 VENTE CACHÉE' : p.intention === 'TRANSITION' ? '⚠ TRANSITION' : '⚖ ÉQUILIBRE';
 
   const levelsHtml = `
     <div class="levels-grid">
@@ -656,6 +658,24 @@ function onSignal(p) {
           <div class="metric-label">Divergence Prix/Delta (Pilier 1)</div>
           <div class="metric-value ${divClass}" style="font-size:12px;">${p.divergence_type ?? '—'} → ${p.divergence_signal ?? '—'}</div>
         </div>
+
+        ${p.intention ? `
+        <div class="metric" style="grid-column:span 2;background:${['ACHAT_FORT','ACHAT_CACHE'].includes(p.intention)?'var(--buy-bg)':['VENTE_FORTE','VENTE_CACHEE'].includes(p.intention)?'var(--sell-bg)':'var(--bg3)'};border:2px solid ${['ACHAT_FORT','ACHAT_CACHE'].includes(p.intention)?'var(--buy-bdr)':['VENTE_FORTE','VENTE_CACHEE'].includes(p.intention)?'var(--sell-bdr)':'var(--border)'};border-radius:8px;">
+          <div class="metric-label" style="font-size:10px;text-transform:uppercase;letter-spacing:.8px;">🧲 Intention Institutionnelle (Bid/Ask + Accélération)</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;">
+            <div class="metric-value ${intentionClass}" style="font-size:14px;font-weight:800;">${intentionIcon}</div>
+            <div style="font-size:12px;color:var(--muted);">Score : <strong style="color:var(--text)">${p.intention_score ?? '—'}/100</strong></div>
+          </div>
+          ${p.bid_ask_pressure ? `<div style="font-size:10px;color:var(--muted);margin-top:3px;">Pression Bid/Ask : <strong style="color:var(--text)">${p.bid_ask_pressure}</strong> | Δ accélération : <strong style="color:var(--text)">${p.delta_acceleration ?? '—'}</strong></div>` : ''}
+          ${p.intention_explanation ? `<div style="font-size:11px;line-height:1.4;margin-top:6px;color:var(--text);">${p.intention_explanation}</div>` : ''}
+        </div>` : ''}
+
+        ${p.bid_sequence ? `
+        <div class="metric" style="grid-column:span 2;">
+          <div class="metric-label">Bid / Ask (5 dernières bougies)</div>
+          <div style="font-size:11px;margin-top:3px;"><span style="color:var(--sell)">Bid : ${p.bid_sequence}</span></div>
+          <div style="font-size:11px;margin-top:2px;"><span style="color:var(--buy)">Ask : ${p.ask_sequence}</span></div>
+        </div>` : ''}
         <div class="metric">
           <div class="metric-label">Dernier Δ</div>
           <div class="metric-value ${deltaClass}">${p.delta_last ?? '—'}</div>
@@ -733,10 +753,15 @@ function onSignal(p) {
               <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px;">④ Value Area / POC — Zones Institutionnelles</div>
               <div style="font-size:12px;line-height:1.5;">${p.reasoning.pilier4_value_area}</div>
             </div>` : ''}
-            ${p.reasoning.pilier5_signaux ? `
+            ${p.reasoning.pilier5_intention ? `
+            <div style="background:var(--bg3);border-radius:7px;padding:10px 12px;border-left:3px solid ${['ACHAT_FORT','ACHAT_CACHE'].includes(p.intention)?'var(--buy)':['VENTE_FORTE','VENTE_CACHEE'].includes(p.intention)?'var(--sell)':'var(--muted)'};">
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px;">⑤ Intention Institutionnelle (Bid/Ask + Accélération)</div>
+              <div style="font-size:12px;line-height:1.5;">${p.reasoning.pilier5_intention}</div>
+            </div>` : ''}
+            ${p.reasoning.pilier6_signaux ? `
             <div style="background:var(--bg3);border-radius:7px;padding:10px 12px;">
-              <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px;">⑤ Signaux Institutionnels (flèches cyan)</div>
-              <div style="font-size:12px;line-height:1.5;">${p.reasoning.pilier5_signaux}</div>
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px;">⑥ Signaux Institutionnels (flèches cyan)</div>
+              <div style="font-size:12px;line-height:1.5;">${p.reasoning.pilier6_signaux}</div>
             </div>` : ''}
             ${p.reasoning.synthese_finale ? `
             <div style="background:${p.signal==='BUY'?'var(--buy-bg)':p.signal==='SELL'?'var(--sell-bg)':'var(--wait-bg)'};border:1px solid ${p.signal==='BUY'?'var(--buy-bdr)':p.signal==='SELL'?'var(--sell-bdr)':'var(--wait-bdr)'};border-radius:7px;padding:10px 12px;">
