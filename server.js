@@ -58,20 +58,22 @@ ORDRE CHRONOLOGIQUE — RÈGLE ABSOLUE :
   Le DERNIER chiffre de la séquence = bougie la plus à droite (la plus récente).
   JAMAIS mettre un delta ancien après un delta récent.
 
-TYPE B — STRUCTURE EXACTE DU TABLEAU (ordre confirmé, de bas en haut) :
-  ┌──────────────────────────────────────────────────────────────────┐
-  │ LIGNE 5 (haut) : Delta      = delta net par bougie (ex: 23)     │
-  │ LIGNE 4        : Max. Delta = delta maximum de la bougie (ex:25) │
-  │ LIGNE 3        : Cum. Delta = delta CUMULÉ session (ex: -306)   │ ← PRIORITAIRE
-  │ LIGNE 2        : Min. Delta = delta minimum de la bougie (ex:-3) │
-  │ LIGNE 1 (bas)  : Volume     = volume total par bougie (ex: 69)  │
-  └──────────────────────────────────────────────────────────────────┘
+TYPE B — STRUCTURE EXACTE DU TABLEAU (ordre confirmé par l'utilisateur, de bas en haut) :
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │ LIGNE 7 (haut+) : Ask        = volume ask                           │
+  │ LIGNE 6         : Bid        = volume bid                           │
+  │ LIGNE 5         : Delta      = delta net par bougie (ex: 23)        │
+  │ LIGNE 4         : Volume     = volume total par bougie (ex: 69)     │
+  │ LIGNE 3         : Cum. Delta = delta CUMULÉ session (ex: -306)      │ ← PRIORITAIRE
+  │ LIGNE 2         : Max. Delta = delta maximum de la bougie (ex: 25)  │
+  │ LIGNE 1 (bas)   : Min. Delta = delta minimum de la bougie (ex: -3)  │
+  └──────────────────────────────────────────────────────────────────────┘
 
-  LECTURE DU CUM.DELTA — RÈGLE PRÉCISE :
-  → C'est la 3ème ligne en partant du BAS (au-dessus de Min.Delta et Volume)
-  → C'est la ligne avec les GRANDES valeurs absolues (ex: -306, -1070, +726, -950...)
-  → Lis la valeur de la colonne la plus à DROITE = bougie la plus récente
-  → NE PAS confondre avec Delta (ligne 5, haut, petites valeurs comme 23, -12, 7...)
+  LECTURE DU CUM.DELTA — RÈGLE ABSOLUE :
+  → C'est la 3ème ligne depuis le BAS (au-dessus de Max.Delta et Min.Delta)
+  → Valeurs typiquement grandes : -306, -1070, +726, -950...
+  → Lis la colonne la plus à DROITE = bougie la plus récente = valeur de session actuelle
+  → NE PAS confondre avec Delta (ligne 5) ni Volume (ligne 4)
 
   LECTURE DELTA/BOUGIE :
   → Ligne 5 (haut, Delta) : lis les 10 dernières valeurs de gauche à droite
