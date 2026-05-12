@@ -565,7 +565,9 @@ function onSignal(p) {
 
   const confClass = p.confidence >= 70 ? 'high' : p.confidence >= 45 ? 'medium' : 'low';
   const deltaClass = p.delta_bias === 'HAUSSIER' ? 'bull' : p.delta_bias === 'BAISSIER' ? 'bear' : 'neutral';
-  const absText = p.abs_detected ? `✅ ${p.abs_type ?? ''}` : '❌ Aucun';
+  const absText = p.absorption_detected ? `✅ ${p.absorption_type ?? ''}` : '❌ Aucun';
+  const divClass = p.divergence_type === 'HAUSSIERE' ? 'bull' : p.divergence_type === 'BAISSIERE' ? 'bear' : 'neutral';
+  const trendClass = p.price_trend === 'UPTREND' ? 'bull' : p.price_trend === 'DOWNTREND' ? 'bear' : 'neutral';
 
   const levelsHtml = `
     <div class="levels-grid">
@@ -602,20 +604,32 @@ function onSignal(p) {
 
       <div class="metrics-grid">
         <div class="metric">
+          <div class="metric-label">Tendance Prix</div>
+          <div class="metric-value ${trendClass}">${p.price_trend ?? '—'}</div>
+        </div>
+        <div class="metric">
           <div class="metric-label">Delta Bias</div>
           <div class="metric-value ${deltaClass}">${p.delta_bias ?? '—'}</div>
+        </div>
+        <div class="metric" style="grid-column:span 2;${p.divergence_type==='HAUSSIERE'?'border:1px solid var(--buy-bdr);background:var(--buy-bg)':p.divergence_type==='BAISSIERE'?'border:1px solid var(--sell-bdr);background:var(--sell-bg)':''}">
+          <div class="metric-label">Divergence Prix/Delta (Pilier 1)</div>
+          <div class="metric-value ${divClass}" style="font-size:12px;">${p.divergence_type ?? '—'} → ${p.divergence_signal ?? '—'}</div>
         </div>
         <div class="metric">
           <div class="metric-label">Dernier Δ</div>
           <div class="metric-value ${deltaClass}">${p.delta_last ?? '—'}</div>
         </div>
+        <div class="metric">
+          <div class="metric-label">Tendance récente Δ</div>
+          <div class="metric-value ${p.delta_recent_trend==='POSITIF'?'bull':p.delta_recent_trend==='NEGATIF'?'bear':'neutral'}">${p.delta_recent_trend ?? '—'}</div>
+        </div>
         <div class="metric" style="grid-column:span 2;">
-          <div class="metric-label">Séquence Δ (5 dernières bougies)</div>
+          <div class="metric-label">Séquence Δ (10 dernières bougies)</div>
           <div class="metric-value neutral" style="font-size:11px;">${p.delta_sequence ?? '—'}</div>
         </div>
         <div class="metric">
-          <div class="metric-label">Signal ABS</div>
-          <div class="metric-value ${p.abs_detected ? (p.abs_type==='HAUSSIER'?'bull':'bear') : 'neutral'}">${absText}</div>
+          <div class="metric-label">Absorption</div>
+          <div class="metric-value ${p.absorption_detected ? (p.absorption_type==='ACHETEUSE'?'bull':'bear') : 'neutral'}">${absText}</div>
         </div>
         <div class="metric">
           <div class="metric-label">BUY / SELL sig.</div>
@@ -631,7 +645,7 @@ function onSignal(p) {
           </div>
           <div class="metric-value ${p.cum_delta > 0 ? 'bull' : p.cum_delta < 0 ? 'bear' : 'neutral'}">${p.cum_delta ?? '—'}</div>
         </div>
-        <div class="metric" style="grid-column:span 2;${p.cum_delta_trap ? 'border:1px solid var(--sell-bdr);background:var(--sell-bg)' : ''}">
+        <div class="metric" style="grid-column:span 2;">
           <div class="metric-label">Value Area (bande)</div>
           <div class="metric-value neutral" style="font-size:11px;">${p.value_area_signal ?? '—'} — ${p.value_area_position ?? '—'}</div>
         </div>
@@ -639,6 +653,11 @@ function onSignal(p) {
         <div class="metric" style="grid-column:span 2;background:var(--sell-bg);border:1px solid var(--sell-bdr);">
           <div class="metric-label" style="color:var(--sell);">⚠ PIÈGE DÉTECTÉ</div>
           <div style="font-size:11px;line-height:1.4;">${p.cum_delta_trap_explanation ?? ''}</div>
+        </div>` : ''}
+        ${p.absorption_detected ? `
+        <div class="metric" style="grid-column:span 2;background:${p.absorption_type==='ACHETEUSE'?'var(--buy-bg)':'var(--sell-bg)'};border:1px solid ${p.absorption_type==='ACHETEUSE'?'var(--buy-bdr)':'var(--sell-bdr)'};border-radius:7px;">
+          <div class="metric-label" style="color:${p.absorption_type==='ACHETEUSE'?'var(--buy)':'var(--sell)'};">⚡ ABSORPTION ${p.absorption_type ?? ''}</div>
+          <div style="font-size:11px;line-height:1.4;">${p.absorption_explanation ?? ''}</div>
         </div>` : ''}
       </div>
 
@@ -653,30 +672,35 @@ function onSignal(p) {
         <div style="border-top:1px solid var(--border);padding-top:14px;">
           <div class="card-title" style="margin-bottom:10px;">🧠 Logique OrderFlow — Pourquoi ce signal ?</div>
           <div style="display:flex;flex-direction:column;gap:8px;">
-            ${p.reasoning.filtre1_cum_delta ? `
-            <div style="background:var(--bg3);border-radius:7px;padding:10px 12px;">
-              <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px;">① Cum Delta — Tendance Maître</div>
-              <div style="font-size:12px;line-height:1.5;">${p.reasoning.filtre1_cum_delta}</div>
+            ${p.reasoning.pilier1_divergence ? `
+            <div style="background:var(--bg3);border-radius:7px;padding:10px 12px;border-left:3px solid ${p.divergence_type==='HAUSSIERE'?'var(--buy)':p.divergence_type==='BAISSIERE'?'var(--sell)':'var(--muted)'};">
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px;">① Divergence Prix/Delta — Signal Dominant</div>
+              <div style="font-size:12px;line-height:1.5;">${p.reasoning.pilier1_divergence}</div>
             </div>` : ''}
-            ${p.reasoning.filtre2_value_area ? `
+            ${p.reasoning.pilier2_absorption ? `
             <div style="background:var(--bg3);border-radius:7px;padding:10px 12px;">
-              <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px;">② Value Area / POC — Zones Institutionnelles</div>
-              <div style="font-size:12px;line-height:1.5;">${p.reasoning.filtre2_value_area}</div>
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px;">② Absorption (institutionnels aux niveaux clés)</div>
+              <div style="font-size:12px;line-height:1.5;">${p.reasoning.pilier2_absorption}</div>
             </div>` : ''}
-            ${p.reasoning.filtre3_divergence ? `
+            ${p.reasoning.pilier3_cum_delta_contexte ? `
             <div style="background:var(--bg3);border-radius:7px;padding:10px 12px;">
-              <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px;">③ Divergence Delta/Prix</div>
-              <div style="font-size:12px;line-height:1.5;">${p.reasoning.filtre3_divergence}</div>
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px;">③ Cum.Delta — Contexte Session</div>
+              <div style="font-size:12px;line-height:1.5;">${p.reasoning.pilier3_cum_delta_contexte}</div>
             </div>` : ''}
-            ${p.reasoning.filtre4_signaux ? `
+            ${p.reasoning.pilier4_value_area ? `
             <div style="background:var(--bg3);border-radius:7px;padding:10px 12px;">
-              <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px;">④ Signaux Directionnels</div>
-              <div style="font-size:12px;line-height:1.5;">${p.reasoning.filtre4_signaux}</div>
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px;">④ Value Area / POC — Zones Institutionnelles</div>
+              <div style="font-size:12px;line-height:1.5;">${p.reasoning.pilier4_value_area}</div>
             </div>` : ''}
-            ${p.reasoning.pourquoi_signal ? `
+            ${p.reasoning.pilier5_signaux ? `
+            <div style="background:var(--bg3);border-radius:7px;padding:10px 12px;">
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px;">⑤ Signaux Institutionnels (flèches cyan)</div>
+              <div style="font-size:12px;line-height:1.5;">${p.reasoning.pilier5_signaux}</div>
+            </div>` : ''}
+            ${p.reasoning.synthese_finale ? `
             <div style="background:${p.signal==='BUY'?'var(--buy-bg)':p.signal==='SELL'?'var(--sell-bg)':'var(--wait-bg)'};border:1px solid ${p.signal==='BUY'?'var(--buy-bdr)':p.signal==='SELL'?'var(--sell-bdr)':'var(--wait-bdr)'};border-radius:7px;padding:10px 12px;">
-              <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px;">✅ Conclusion</div>
-              <div style="font-size:13px;font-weight:600;line-height:1.5;">${p.reasoning.pourquoi_signal}</div>
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px;">Synthèse Finale</div>
+              <div style="font-size:13px;font-weight:600;line-height:1.5;">${p.reasoning.synthese_finale}</div>
             </div>` : ''}
           </div>
         </div>` : ''}

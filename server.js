@@ -12,19 +12,16 @@ const wss = new WebSocketServer({ server, path: '/ws/live' });
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-// Historique en mémoire (50 dernières analyses)
 const history = [];
 const MAX_HISTORY = 50;
 
-// ─── Utilitaires ──────────────────────────────────────────────────────────────
-
 function getSession(utcHour, utcDay) {
-  if (utcDay === 0 || utcDay === 6) return { label: 'WEEKEND — MARCHÉS FERMÉS', quality: 'closed' };
-  if (utcHour >= 22 || utcHour < 7)  return { label: 'SESSION ASIE (liquidité faible)', quality: 'low' };
-  if (utcHour >= 7  && utcHour < 8)  return { label: 'TOKYO → LONDRES (transition)', quality: 'medium' };
-  if (utcHour >= 8  && utcHour < 12) return { label: 'SESSION LONDRES (forte liquidité)', quality: 'high' };
-  if (utcHour >= 12 && utcHour < 17) return { label: 'OVERLAP LONDRES / NEW YORK ★ LIQUIDITÉ MAX', quality: 'max' };
-  if (utcHour >= 17 && utcHour < 21) return { label: 'SESSION NEW YORK (clôture US)', quality: 'high' };
+  if (utcDay === 0 || utcDay === 6) return { label: 'WEEKEND - MARCHES FERMES', quality: 'closed' };
+  if (utcHour >= 22 || utcHour < 7)  return { label: 'SESSION ASIE (liquidite faible)', quality: 'low' };
+  if (utcHour >= 7  && utcHour < 8)  return { label: 'TOKYO -> LONDRES (transition)', quality: 'medium' };
+  if (utcHour >= 8  && utcHour < 12) return { label: 'SESSION LONDRES (forte liquidite)', quality: 'high' };
+  if (utcHour >= 12 && utcHour < 17) return { label: 'OVERLAP LONDRES / NEW YORK - LIQUIDITE MAX', quality: 'max' };
+  if (utcHour >= 17 && utcHour < 21) return { label: 'SESSION NEW YORK (cloture US)', quality: 'high' };
   return { label: 'TRANSITION INTER-SESSION', quality: 'medium' };
 }
 
@@ -35,213 +32,268 @@ function buildPrompt() {
   const session = getSession(utcHour, utcDay);
   const days    = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
 
-  return `Tu es un trader institutionnel Order Flow expert. Tu analyses des charts NinjaTrader avec la précision d'un prop trader professionnel.
-Retourne UNIQUEMENT du JSON valide. Aucun texte avant ou après.
-RÈGLE ABSOLUE : analyse UNIQUEMENT ce que tu vois sur cette image. Chaque analyse est indépendante.
+  return `Tu es un trader institutionnel Order Flow expert forme a l'ecole des prop traders.
+Tu analyses des charts NinjaTrader Belkhayate OrderFlow avec une precision chirurgicale.
+Retourne UNIQUEMENT du JSON valide. Aucun texte avant ou apres.
+Analyse UNIQUEMENT ce que tu vois sur cette image. Chaque analyse est independante.
 
-HEURE UTC : ${utcHour}h — ${days[utcDay]} ${now.toUTCString()}
+HEURE UTC : ${utcHour}h - ${days[utcDay]} ${now.toUTCString()}
 SESSION : ${session.label}
 
-════════════════════════════════════════════════════════
-ÉTAPE 1 — LECTURE BRUTE DU CHART
-════════════════════════════════════════════════════════
+==============================================================
+ETAPE 1 - LECTURE BRUTE (donnees factuelles, pas d'interpretation)
+==============================================================
 
-PRIX ACTUEL : rectangle surbrillant sur l'axe DROIT → lis-le EXACTEMENT (ex: 4710.6)
-INSTRUMENT  : nom exact en haut à gauche (ex: GC JUN26)
-TYPE DE CHART :
-  TYPE A = valeurs Δ écrites sur chaque bougie (Belkhayate OrderFlow)
-  TYPE B = tableau Delta/Cum.Delta/Volume en BAS du chart (Order Flows Trader)
+PRIX ACTUEL : rectangle surbrillant sur l'axe DROIT -> lis exactement (ex: 4701.2)
+INSTRUMENT  : nom en haut a gauche (ex: GC JUN26)
+CHRONOLOGIE : GAUCHE = ancien, DROITE = recent. Sequence toujours de gauche a droite.
 
-ORDRE CHRONOLOGIQUE — RÈGLE ABSOLUE :
-  GAUCHE = plus ancien, DROITE = plus récent.
-  La séquence se lit TOUJOURS de gauche à droite.
-  Le DERNIER chiffre de la séquence = bougie la plus à droite (la plus récente).
-  JAMAIS mettre un delta ancien après un delta récent.
+REGLE COULEUR = SIGNE - PRIORITE ABSOLUE SUR TOUT TEXTE VISIBLE :
+  CELLULE ROUGE = valeur NEGATIVE  ("306" rouge -> -306)
+  CELLULE VERTE = valeur POSITIVE  ("306" vert  -> +306)
+  Le tiret "-" peut etre invisible ou coupe. La COULEUR prime toujours.
 
-  ══════════════════════════════════════════════════════════════
-  REGLE COULEUR = SIGNE (A APPLIQUER AVANT TOUTE LECTURE DE VALEUR)
-  ══════════════════════════════════════════════════════════════
-  CELLULE ROUGE  = valeur NEGATIVE  : tu vois "306" en rouge  -> cum_delta = -306
-  CELLULE VERTE  = valeur POSITIVE  : tu vois "306" en vert   -> cum_delta = +306
-  Le tiret peut etre coupe ou invisible. La COULEUR est le seul indicateur fiable du signe.
-  JAMAIS retourner une valeur positive si la cellule est rouge.
-  JAMAIS retourner une valeur negative si la cellule est verte.
-  ══════════════════════════════════════════════════════════════
+STRUCTURE DU TABLEAU (bas -> haut, confirmee par l'utilisateur) :
+  LIGNE 1 (bas) : Min. Delta  - petites valeurs negatives (-3, -12...)
+  LIGNE 2       : Max. Delta  - petites valeurs positives (25, 44...)
+  LIGNE 3       : Cum. Delta  - GRANDES valeurs (+/-200 a +/-2000) LECTURE PRIORITAIRE
+  LIGNE 4       : Volume      - grandes valeurs positives (69, 200, 400...)
+  LIGNE 5       : Delta       - petites valeurs mixtes (-7, 23, -14...)
+  LIGNE 6       : Bid         - volumes bid
+  LIGNE 7 (haut): Ask         - volumes ask
 
-TYPE B — STRUCTURE EXACTE DU TABLEAU (ordre confirmé par l'utilisateur, de bas en haut) :
+LECTURE CUM.DELTA (ligne 3, 3eme depuis le bas) :
+  -> Cellule la plus a DROITE = valeur de session actuelle
+  -> Couleur rouge = negatif / verte = positif
+  -> Si |valeur| < 100 -> mauvaise ligne lue (refaire)
+  -> Renseigne "cum_delta_cell_color": "RED" ou "GREEN"
 
-  LIGNE 7 (haut) : Ask        = volume ask
-  LIGNE 6        : Bid        = volume bid
-  LIGNE 5        : Delta      = delta net par bougie          (petites valeurs: 23, -7, 16...)
-  LIGNE 4        : Volume     = volume total par bougie       (valeurs: 69, 120, 200...)
-  LIGNE 3        : Cum. Delta = delta CUMULE session ★        (grandes valeurs: -306, -1070, +726...)
-  LIGNE 2        : Max. Delta = delta maximum de la bougie    (valeurs: 25, 44, 50...)
-  LIGNE 1 (bas)  : Min. Delta = delta minimum de la bougie   (valeurs: -3, -12, -30...)
+TENDANCE DU PRIX (regarde les 15 dernieres bougies) :
+  -> Prix fait des sommets et creux de PLUS EN PLUS HAUTS = UPTREND
+  -> Prix fait des sommets et creux de PLUS EN PLUS BAS = DOWNTREND
+  -> Prix oscille sans direction claire = RANGE
+  -> Renseigne "price_trend": "UPTREND" | "DOWNTREND" | "RANGE"
 
-  PROCEDURE LECTURE CUM.DELTA (ligne 3) :
-  1. Repere la 3eme ligne depuis le bas (au-dessus de Max.Delta et Min.Delta)
-  2. Lis la cellule la plus a DROITE (bougie la plus recente)
-  3. REGARDE LA COULEUR : rouge -> negatif / verte -> positif
-  4. Applique le signe correct avant d'ecrire la valeur dans cum_delta
-  EXEMPLE: cellule rouge affichant "306" -> cum_delta = -306
-  EXEMPLE: cellule verte affichant "306" -> cum_delta = +306
+DELTA/BOUGIE (ligne 5) : lis les 10 dernieres valeurs gauche -> droite
+  -> Renseigne "delta_recent_trend": "POSITIF" | "NEGATIF" | "MIXTE"
+     (les 3-4 dernieres bougies vont-elles dans le meme sens ?)
 
-  VERIFICATION : si |cum_delta| < 100, tu as probablement lu Delta (ligne 5) au lieu de Cum.Delta (ligne 3).
-  Cum.Delta de session = toujours grande valeur en absolu (typiquement 200 a 2000).
+Fleches vertes UP = BUY | Fleches rouges DOWN = SELL
+Fleches cyan/bleues UP = BUY institutionnel | Fleches cyan/bleues DOWN = SELL institutionnel
 
-  LECTURE DELTA/BOUGIE (ligne 5) :
-  Lis les 10 dernieres valeurs de gauche a droite. Meme regle couleur.
+==============================================================
+ETAPE 2 - LES 5 PILIERS DE L'ORDERFLOW (ordre de priorite reel)
+==============================================================
 
-  Fleches vertes UP = BUY | Fleches rouges DOWN = SELL
-  Fleches bleues/cyan UP = BUY institutionnel | Fleches bleues/cyan DOWN = SELL institutionnel
+PILIER 1 - DIVERGENCE PRIX / CUM.DELTA (signal le plus fort - prime sur tout)
+-------------------------------------------------------------------------------
+C'est LE signal institutionnel numero 1.
 
-════════════════════════════════════════════════════════
-ÉTAPE 2 — LES 4 FILTRES INSTITUTIONNELS (dans cet ordre de priorité)
-════════════════════════════════════════════════════════
+DIVERGENCE HAUSSIERE (signal BUY fort) :
+  Prix fait des BAS DE PLUS EN PLUS HAUTS (ou monte)
+  MAIS Cum.Delta est negatif ou continue de baisser
+  -> Les acheteurs PAIENT DE PLUS EN PLUS CHER malgre la pression vendeuse
+  -> Les vendeurs sont ABSORBES = epuisement vendeur
+  -> Signal = BUY meme si Cum.Delta est negatif
+  EXEMPLE : prix monte de 4689 a 4701 + Cum.Delta = -306 = DIVERGENCE BULLISH = BUY
 
-▶ FILTRE 1 — CUM DELTA : LA TENDANCE MAÎTRE DE LA SESSION
-  Le Cum.Delta = pression nette TOTALE depuis l'ouverture de la session.
-  C'est le filtre le plus important. Il définit le CONTEXTE.
-  RAPPEL SIGNE : cellule rouge = valeur négative. Lis "cellule rouge 726" → Cum.Delta = -726 (NÉGATIF).
+DIVERGENCE BAISSIERE (signal SELL fort) :
+  Prix fait des HAUTS DE PLUS EN PLUS BAS (ou descend)
+  MAIS Cum.Delta est positif ou continue de monter
+  -> Les vendeurs PAIENT DE PLUS EN PLUS BAS malgre la pression acheteuse
+  -> Les acheteurs sont ABSORBES = epuisement acheteur
+  -> Signal = SELL meme si Cum.Delta est positif
 
-  Cum.Delta fortement négatif (ex: -792, -1000...) = la session EST vendeuse.
-    → Les acheteurs agressifs ont été dominés toute la session.
-    → Toute séquence positive courte (5-10 bougies) = REBOND TECHNIQUE, pas un retournement.
-    → NE PAS donner un signal BUY dans un Cum.Delta fortement négatif sauf exception rare.
-    → Signal correct = SELL sur rebond, ou ATTENDRE confirmation de retournement.
+CONFIRMATION (pas de divergence) :
+  Prix monte + Cum.Delta monte = trend haussier confirme -> BUY continuation
+  Prix baisse + Cum.Delta baisse = trend baissier confirme -> SELL continuation
 
-  Cum.Delta fortement positif (ex: +500, +800...) = la session EST acheteuse.
-    → Toute séquence négative courte = correction technique, pas retournement.
-    → NE PAS donner un signal SELL sauf divergence majeure.
+REGLE CRITIQUE - A NE PAS OUBLIER :
+  Cum.Delta negatif + prix qui MONTE = DIVERGENCE HAUSSIERE -> BUY (pas SELL !)
+  Cum.Delta positif + prix qui BAISSE = DIVERGENCE BAISSIERE -> SELL (pas BUY !)
+  Un Cum.Delta negatif seul NE SUFFIT PAS a donner un signal SELL.
 
-  Cum.Delta proche de 0 ou mixte = session neutre → regarder tendance récente uniquement.
+PILIER 2 - ABSORPTION (retournement a un niveau cle)
+-----------------------------------------------------
+L'absorption = gros delta dans un sens + prix qui NE BOUGE PAS = institutionnels absorbent.
 
-  RÈGLE ANTI-PIÈGE : si les derniers deltas sont positifs MAIS Cum.Delta est négatif :
-    → C'est un rebond dans une tendance baissière = TRAP HAUSSIER.
-    → Signal = ATTENDRE ou SELL, jamais BUY.
+ABSORPTION ACHETEUSE (a un support) :
+  Gros deltas negatifs (-30, -40, -50) a un niveau de support
+  MAIS le prix tient ce niveau ou monte
+  -> Les acheteurs institutionnels absorbent toute la pression vendeuse
+  -> Signal = BUY fort (epuisement vendeur au support)
 
-▶ FILTRE 2 — VALUE AREA / POC (bandes horizontales colorées sur le chart)
-  Les bandes horizontales grises/vertes/rouges = zones de forte activité institutionnelle.
-  Ces bandes montrent OÙ le volume s'est concentré = où les institutionnels ont agi.
+ABSORPTION VENDEUSE (a une resistance) :
+  Gros deltas positifs (+30, +40) a une resistance
+  MAIS le prix ne monte pas ou recule
+  -> Les vendeurs institutionnels absorbent tous les acheteurs
+  -> Signal = SELL fort (epuisement acheteur a la resistance)
 
-  POSITION DE LA BANDE PAR RAPPORT AU PRIX ACTUEL :
-  Bande au SOMMET de la structure récente (prix dessous ou au niveau) :
-    → Distribution institutionnelle en haut = résistance forte.
-    → Les institutionnels ont vendu massivement là.
-    → Signal = SELL ou ATTENDRE (le prix va revenir vers la bande puis rebondir à la baisse).
+EPUISEMENT DU CUM.DELTA :
+  Cum.Delta atteint une valeur extreme ET ralentit (les increments deviennent petits)
+  MAIS le prix ne fait plus de nouveaux extremes -> epuisement possible -> retournement
 
-  Bande en BAS de la structure récente (prix dessus) :
-    → Accumulation institutionnelle en bas = support fort.
-    → Signal = BUY sur pullback vers cette zone.
+PILIER 3 - CUM.DELTA : CONTEXTE DE SESSION (pas signal seul)
+------------------------------------------------------------
+Le Cum.Delta donne le CONTEXTE GLOBAL, pas le signal direct.
 
-  RÈGLE : si la bande s'est déplacée vers le HAUT récemment + Cum.Delta négatif :
-    → Distribution massive confirmée = SELL fort.
+FORTEMENT NEGATIF (< -500) : dominance vendeuse sur la session
+  -> CONTEXTE baissier MAIS pas automatiquement un SELL
+  -> Une divergence haussiere dans ce contexte = retournement tres puissant
 
-▶ FILTRE 3 — DIVERGENCE DELTA/PRIX (le signal de retournement)
-  Prix monte + Cum.Delta baisse = divergence bearish → retournement baissier imminent.
-  Prix baisse + Cum.Delta monte = divergence bullish → retournement haussier imminent.
-  Prix monte + gros deltas négatifs qui persistent = distribution active → SELL.
-  Prix baisse + gros deltas positifs qui persistent = accumulation active → BUY.
+MODEREMENT NEGATIF (-100 a -500) : legere dominance vendeuse
+  -> Contexte legrement baissier
+  -> Signaux BUY valides si confirmes par divergence ou absorption
 
-  VOLUME AVEC PRIX QUI N'AVANCE PAS :
-  Gros volume (ex: 236 contracts) + prix stagne ou baisse = absorption/distribution.
-  Signification : les vendeurs absorbent tous les acheteurs → continuation baissière.
+NEUTRE (-100 a +100) : session equilibree -> regarder tendance recente
 
-▶ FILTRE 4 — SIGNAUX DIRECTIONNELS (confirmation uniquement)
-  Ce filtre confirme ou infirme, il ne suffit PAS seul à donner un signal.
-  Flèche bleue ↑ = signal institutionnel fort MAIS à valider avec les 3 filtres précédents.
-  Si flèche bleue + Cum.Delta négatif + bande en haut → le signal bleu est un piège.
-  Plusieurs flèches vertes consécutives + Cum.Delta positif + bande en bas = BUY confirmé.
+MODEREMENT POSITIF (+100 a +500) : legere dominance acheteuse
 
-════════════════════════════════════════════════════════
-ÉTAPE 3 — NIVEAUX (lus sur l'image)
-════════════════════════════════════════════════════════
+FORTEMENT POSITIF (> +500) : dominance acheteuse
+  -> Signaux SELL valides si confirmes par divergence baissiere
 
-Prix actuel   = axe droit (exact)
-Résistance    = bande haute OU dernière zone de forte activité vendeuse au-dessus
-Support       = bande basse OU dernière zone de forte activité acheteuse en-dessous
-POC session   = niveau de plus fort volume visible
+PILIER 4 - VALUE AREA / POC (zones institutionnelles)
+------------------------------------------------------
+Les bandes horizontales = zones de fort volume institutionnel.
 
-BUY  : Entry juste au-dessus support, Stop sous support, TP1=résistance proche, TP2=suivante
-SELL : Entry juste sous résistance, Stop au-dessus résistance, TP1=support proche, TP2=suivant
+VALUE AREA HIGH (VAH) = resistance institutionnelle
+  Prix approche VAH depuis le bas : resistance forte -> SELL ou ATTENDRE
+  Prix casse VAH avec volume : breakout haussier -> BUY fort
 
-════════════════════════════════════════════════════════
-ÉTAPE 4 — DÉCISION FINALE
-════════════════════════════════════════════════════════
+VALUE AREA LOW (VAL) = support institutionnel
+  Prix approche VAL depuis le haut : support fort -> BUY ou ATTENDRE
+  Prix casse VAL avec volume : breakdown baissier -> SELL fort
 
-MATRICE DE DÉCISION :
-  Cum.Delta négatif + Bande en haut + Prix en dessous bande   → SELL (fort)
-  Cum.Delta négatif + Deltas positifs courts                  → ATTENDRE (rebond, pas retournement)
-  Cum.Delta positif + Bande en bas + Prix au-dessus bande     → BUY (fort)
-  Cum.Delta positif + Deltas négatifs courts                  → ATTENDRE (correction, pas retournement)
-  Divergence confirmée + Cum.Delta retourne                   → signal dans sens divergence
-  Signaux mixtes OU Cum.Delta neutre                          → ATTENDRE
+POC = aimant a prix (prix revient toujours vers le POC)
+  Prix au-dessus POC = structure haussiere
+  Prix en-dessous POC = structure baissiere
+
+PILIER 5 - SIGNAUX DIRECTIONNELS (confirmation institutionnelle)
+---------------------------------------------------------------
+Les fleches ne declenchent PAS seules - elles CONFIRMENT les piliers 1-4.
+
+Fleche cyan/bleue UP = algorithme detecte accumulation institutionnelle
+  -> Confirme une divergence haussiere ou une absorption acheteuse
+  -> Plusieurs fleches cyan consecutives = signal institutionnel majeur
+
+REGLE ANTI-PIEGE :
+  Fleche cyan BUY + Cum.Delta tres negatif + prix en resistance = piege haussier
+  Fleche cyan BUY + Cum.Delta negatif + prix qui monte = divergence confirmee = BUY reel
+
+==============================================================
+ETAPE 3 - NIVEAUX DE TRADING (lus sur l'image)
+==============================================================
+
+Support = dernier bas significatif OU VAL OU zone d'absorption acheteuse
+Resistance = dernier haut significatif OU VAH OU zone d'absorption vendeuse
+POC = niveau de plus fort volume dans les bougies footprint
+
+BUY  : Entry = prix actuel ou pullback sur support, Stop = sous support, TP1/TP2 = resistances
+SELL : Entry = prix actuel ou rebond sur resistance, Stop = au-dessus resistance, TP1/TP2 = supports
+
+==============================================================
+ETAPE 4 - DECISION FINALE (matrice complete)
+==============================================================
+
+SIGNAUX BUY FORTS :
+  Prix UPTREND + Cum.Delta negatif (divergence haussiere)                   -> BUY fort
+  Prix tient support + gros deltas negatifs absorbes                        -> BUY fort
+  Prix UPTREND + Cum.Delta monte (confirmation)                             -> BUY continuation
+  Plusieurs fleches cyan UP + prix qui monte                                -> BUY confirme
+
+SIGNAUX SELL FORTS :
+  Prix DOWNTREND + Cum.Delta positif (divergence baissiere)                 -> SELL fort
+  Prix bloque resistance + gros deltas positifs absorbes                    -> SELL fort
+  Prix DOWNTREND + Cum.Delta baisse (confirmation)                          -> SELL continuation
+  Plusieurs fleches cyan DOWN + prix qui baisse                             -> SELL confirme
+
+ATTENDRE :
+  Signaux contradictoires entre les 5 piliers
+  Cum.Delta neutre + prix en range sans direction
+  Session Asie
+
+PIEGES A EVITER :
+  Cum.Delta tres negatif -> SELL immediat : FAUX si prix monte (c'est une divergence haussiere)
+  Cum.Delta tres positif -> BUY immediat : FAUX si prix baisse (c'est une divergence baissiere)
 
 Session :
-  Overlap Londres/NY → +10 confiance (cap 95)
-  Asie seule → -15 confiance, ATTENDRE si < 50
-  Weekend → forcer ATTENDRE
+  Overlap Londres/NY -> +10 confiance (max 95)
+  Asie -> -15 confiance, ATTENDRE si < 50
+  Weekend -> ATTENDRE force
 
-FORMAT JSON OBLIGATOIRE (retourne exactement ceci, rien d'autre) :
+==============================================================
+FORMAT JSON - retourne exactement ceci, rien d'autre
+==============================================================
 {
-  "signal": "BUY" | "SELL" | "ATTENDRE",
-  "asset": "symbole exact détecté sur le chart",
-  "timeframe": "gamme ou timeframe détecté",
-  "current_price": prix actuel LU SUR L'AXE DROIT (number, obligatoire, jamais null),
+  "signal": "BUY" ou "SELL" ou "ATTENDRE",
+  "asset": "symbole exact",
+  "timeframe": "gamme ou timeframe",
+  "current_price": prix lu sur axe droit (number, jamais null),
   "confidence": 0-100,
 
-  "cum_delta_cell_color": "RED" | "GREEN",
-  "cum_delta": valeur du Cum.Delta avec signe correct selon couleur (number, ex: -792 si cellule rouge),
-  "cum_delta_context": "FORTEMENT_NÉGATIF" | "NÉGATIF" | "NEUTRE" | "POSITIF" | "FORTEMENT_POSITIF",
-  "cum_delta_trap": true | false,
-  "cum_delta_trap_explanation": "si trap=true : pourquoi les deltas positifs récents sont un piège dans ce contexte",
+  "price_trend": "UPTREND" ou "DOWNTREND" ou "RANGE",
+  "price_trend_explanation": "description des hauts/bas recents observes sur les 15 dernieres bougies",
 
-  "value_area_position": "HAUT" | "BAS" | "MILIEU" | "NON_VISIBLE",
-  "value_area_explanation": "ce que dit la position de la bande grise/colorée sur la structure",
-  "value_area_signal": "DISTRIBUTION_RÉSISTANCE" | "ACCUMULATION_SUPPORT" | "NEUTRE" | "NON_VISIBLE",
+  "cum_delta_cell_color": "RED" ou "GREEN",
+  "cum_delta": valeur avec signe couleur (number, ex: -306),
+  "cum_delta_context": "FORTEMENT_NEGATIF" ou "NEGATIF" ou "NEUTRE" ou "POSITIF" ou "FORTEMENT_POSITIF",
 
-  "delta_bias": "HAUSSIER" | "BAISSIER" | "NEUTRE",
-  "delta_last": "valeur exacte du dernier Δ (ex: '-7')",
-  "delta_sequence": "10 derniers deltas de gauche à droite (ex: '10, 33, 38, 44, -7, -22, -9, 28, 16, -7')",
-  "delta_divergence": true | false,
-  "delta_divergence_type": "BULLISH" | "BEARISH" | null,
-  "delta_divergence_explanation": "description précise de la divergence si présente",
+  "divergence_type": "HAUSSIERE" ou "BAISSIERE" ou "CONFIRMATION_BULL" ou "CONFIRMATION_BEAR" ou "NEUTRE",
+  "divergence_explanation": "prix fait X, Cum.Delta fait Y, donc le signal est Z",
+  "divergence_signal": "BUY" ou "SELL" ou "NEUTRE",
 
-  "buy_signals": nombre entier de flèches BUY visibles,
-  "sell_signals": nombre entier de flèches SELL visibles,
-  "institutional_signals": nombre de flèches bleues (BUY institutionnel),
+  "absorption_detected": true ou false,
+  "absorption_type": "ACHETEUSE" ou "VENDEUSE" ou null,
+  "absorption_explanation": "si detectee : niveau, delta, comportement du prix",
 
-  "confluence_score": 0-4,
-  "confluence_elements": ["éléments convergents"],
-  "anti_confluence": ["éléments qui contredisent le signal — IMPORTANT à lister"]
+  "cum_delta_trap": true ou false,
+  "cum_delta_trap_explanation": "explication du piege si applicable",
 
-  "entry": prix d'entrée (number ou null),
-  "stop_loss": niveau SL (number ou null),
-  "tp1": premier objectif (number ou null),
-  "tp2": deuxième objectif (number ou null),
-  "key_support": support clé lu sur le chart (number ou null),
-  "key_resistance": résistance clé lue sur le chart (number ou null),
-  "poc": POC lu dans le footprint (number ou null),
+  "value_area_position": "HAUT" ou "BAS" ou "MILIEU" ou "NON_VISIBLE",
+  "value_area_signal": "DISTRIBUTION_RESISTANCE" ou "ACCUMULATION_SUPPORT" ou "BREAKOUT_BULL" ou "BREAKDOWN_BEAR" ou "NEUTRE" ou "NON_VISIBLE",
+  "value_area_explanation": "position bande + impact sur signal",
 
-  "orderflow_score": score 0-100,
+  "delta_bias": "HAUSSIER" ou "BAISSIER" ou "NEUTRE",
+  "delta_last": "derniere valeur delta (ex: -3)",
+  "delta_sequence": "10 derniers deltas gauche vers droite",
+  "delta_recent_trend": "POSITIF" ou "NEGATIF" ou "MIXTE",
+
+  "buy_signals": nombre fleches BUY vertes,
+  "sell_signals": nombre fleches SELL rouges,
+  "institutional_signals": nombre fleches cyan/bleues,
+  "institutional_direction": "BUY" ou "SELL" ou "MIXTE" ou "AUCUN",
+
+  "confluence_score": 0-5,
+  "confluence_elements": ["piliers qui convergent vers le signal"],
+  "anti_confluence": ["piliers qui contredisent - OBLIGATOIRE a lister"],
+
+  "entry": prix entree (number ou null),
+  "stop_loss": SL (number ou null),
+  "tp1": TP1 (number ou null),
+  "tp2": TP2 (number ou null),
+  "key_support": support cle (number ou null),
+  "key_resistance": resistance cle (number ou null),
+  "poc": POC (number ou null),
+
+  "orderflow_score": 0-100,
   "session": "${session.label}",
   "session_quality": "${session.quality}",
 
   "reasoning": {
-    "filtre1_cum_delta": "Cum.Delta = X → contexte de session = HAUSSIER/BAISSIER/NEUTRE. Les derniers deltas positifs/négatifs sont-ils une tendance ou un piège dans ce contexte ?",
-    "filtre2_value_area": "La bande horizontale est en HAUT/BAS/MILIEU de la structure. Ce que ça signifie : distribution ou accumulation institutionnelle. Impact sur le signal.",
-    "filtre3_divergence": "Y a-t-il une divergence prix/delta ? Prix monte mais Cum.Delta baisse = distribution. Volume élevé sans progression de prix = absorption. Explication détaillée.",
-    "filtre4_signaux": "Flèches BUY/SELL/Institutionnelles visibles. Sont-elles confirmées par les 3 filtres précédents ou contredites ?",
-    "pourquoi_signal": "Conclusion en 2-3 phrases : synthèse des 4 filtres → POURQUOI ce signal est valide ou pourquoi ATTENDRE. Mention explicite si c'est un piège."
+    "pilier1_divergence": "Prix trend = X. Cum.Delta = Y. Relation prix/delta = divergence haussiere/baissiere/confirmation. Signal induit : BUY/SELL/NEUTRE. JUSTIFICATION DETAILLEE.",
+    "pilier2_absorption": "Y a-t-il un niveau ou le prix tient malgre des deltas contraires ? Identification precise.",
+    "pilier3_cum_delta_contexte": "Valeur Cum.Delta = X (cellule couleur). Contexte de session. Comment ce contexte modifie la lecture des autres piliers ?",
+    "pilier4_value_area": "Position des bandes institutionnelles. VAH/VAL/POC par rapport au prix. Impact sur le biais directionnel.",
+    "pilier5_signaux": "Nombre et direction des fleches institutionnelles. Convergent-elles avec les piliers 1-4 ?",
+    "synthese_finale": "En 3 phrases max : quel est LE signal dominant, pourquoi il prime sur les autres, quel est le risque principal."
   },
 
-  "synthesis": "1 phrase résumant le signal et la raison principale",
-  "warnings": ["alertes ou contradictions détectées"]
+  "synthesis": "1 phrase : signal + raison principale OrderFlow",
+  "warnings": ["contradictions ou risques detectes"]
 }`;
 }
 
-// ─── Routes Express ───────────────────────────────────────────────────────────
-
+// Routes Express
 app.use(express.static(join(__dirname, 'public')));
 
 app.get('/api/history', (_req, res) => {
@@ -255,10 +307,9 @@ app.get('/api/session', (_req, res) => {
 
 app.get('/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
 
-// ─── WebSocket Live Analysis ──────────────────────────────────────────────────
-
+// WebSocket Live Analysis
 wss.on('connection', (ws) => {
-  console.log('[WS] Client connecté');
+  console.log('[WS] Client connecte');
   send(ws, { type: 'connected' });
 
   ws.on('message', async (raw) => {
@@ -270,13 +321,11 @@ wss.on('connection', (ws) => {
 
     send(ws, { type: 'analyzing' });
 
-    // Keep-alive pendant l'analyse (Claude peut prendre 10-20s)
     const keepAlive = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) send(ws, { type: 'keepalive' });
     }, 12000);
 
     try {
-      // Extraire base64 + media_type depuis data URI
       let imgBase64 = msg.data;
       let mediaType = 'image/jpeg';
       if (msg.data.startsWith('data:')) {
@@ -301,13 +350,13 @@ wss.on('connection', (ws) => {
               type: 'text',
               text: `Analyse ce chart Belkhayate OrderFlow NinjaTrader.
 
-RAPPEL CRITIQUE AVANT TOUT :
-- CELLULE ROUGE dans le tableau = valeur NEGATIVE (ex: "306" rouge = -306)
-- CELLULE VERTE dans le tableau = valeur POSITIVE (ex: "306" vert = +306)
-- Le tiret peut etre invisible. Regarde LA COULEUR avant de lire chaque chiffre.
-- Cum.Delta (3eme ligne depuis le bas) : lis sa couleur, applique le signe, PUIS ecris la valeur.
+RAPPELS AVANT ANALYSE :
+1. COULEUR CELLULE = SIGNE : rouge -> negatif, vert -> positif
+2. Cum.Delta = 3eme ligne depuis le bas (grandes valeurs +/-200 a +/-2000)
+3. PILIER 1 PRIORITAIRE : si prix monte + Cum.Delta negatif = DIVERGENCE HAUSSIERE = BUY
+4. Cum.Delta negatif seul ne suffit PAS a donner un SELL si le prix monte
 
-Exécute les 4 étapes et retourne UNIQUEMENT le JSON.`
+Retourne UNIQUEMENT le JSON.`
             }
           ]
         }]
@@ -322,7 +371,7 @@ Exécute les 4 étapes et retourne UNIQUEMENT le JSON.`
         const match = rawText.match(/\{[\s\S]*\}/);
         parsed = JSON.parse(match ? match[0] : rawText);
       } catch {
-        return send(ws, { type: 'error', message: 'Erreur parsing réponse Claude', raw: rawText.slice(0, 500) });
+        return send(ws, { type: 'error', message: 'Erreur parsing Claude', raw: rawText.slice(0, 500) });
       }
 
       const entry = { ...parsed, timestamp: Date.now() };
@@ -330,7 +379,7 @@ Exécute les 4 étapes et retourne UNIQUEMENT le JSON.`
       if (history.length > MAX_HISTORY) history.shift();
 
       send(ws, { type: 'signal', payload: entry, timestamp: Date.now() });
-      console.log(`[SIGNAL] ${parsed.asset} — ${parsed.signal} — conf:${parsed.confidence}%`);
+      console.log(`[SIGNAL] ${parsed.asset} - ${parsed.signal} - conf:${parsed.confidence}%`);
 
     } catch (err) {
       clearInterval(keepAlive);
@@ -340,7 +389,7 @@ Exécute les 4 étapes et retourne UNIQUEMENT le JSON.`
     }
   });
 
-  ws.on('close', () => console.log('[WS] Client déconnecté'));
+  ws.on('close', () => console.log('[WS] Client deconnecte'));
   ws.on('error', (e) => console.error('[WS Error]', e.message));
 });
 
@@ -348,12 +397,11 @@ function send(ws, payload) {
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload));
 }
 
-// ─── Start ────────────────────────────────────────────────────────────────────
-
+// Start
 const PORT = process.env.PORT ?? 3000;
 server.listen(PORT, () => {
-  console.log(`✅ OrderFlow Live Analysis — http://localhost:${PORT}`);
+  console.log(`OrderFlow Live Analysis - http://localhost:${PORT}`);
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.warn('⚠️  ANTHROPIC_API_KEY non défini — analyses désactivées');
+    console.warn('ANTHROPIC_API_KEY non defini - analyses desactivees');
   }
 });
