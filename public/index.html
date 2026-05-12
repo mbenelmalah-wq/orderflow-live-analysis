@@ -430,6 +430,10 @@ function onSignal(p) {
           <div class="metric-label">Dernier Δ</div>
           <div class="metric-value ${deltaClass}">${p.delta_last ?? '—'}</div>
         </div>
+        <div class="metric" style="grid-column:span 2;">
+          <div class="metric-label">Séquence Δ (5 dernières bougies)</div>
+          <div class="metric-value neutral" style="font-size:11px;">${p.delta_sequence ?? '—'}</div>
+        </div>
         <div class="metric">
           <div class="metric-label">Signal ABS</div>
           <div class="metric-value ${p.abs_detected ? (p.abs_type==='HAUSSIER'?'bull':'bear') : 'neutral'}">${absText}</div>
@@ -454,9 +458,51 @@ function onSignal(p) {
           ${levelsHtml}
         </div>` : ''}
 
+      <!-- Raisonnement OrderFlow -->
+      ${p.reasoning ? `
+        <div style="border-top:1px solid var(--border);padding-top:14px;">
+          <div class="card-title" style="margin-bottom:10px;">🧠 Logique OrderFlow — Pourquoi ce signal ?</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            ${p.reasoning.desequilibre ? `
+            <div style="background:var(--bg3);border-radius:7px;padding:10px 12px;">
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px;">⚖ Déséquilibre Offre/Demande</div>
+              <div style="font-size:12px;line-height:1.5;">${p.reasoning.desequilibre}</div>
+            </div>` : ''}
+            ${p.reasoning.absorption ? `
+            <div style="background:var(--bg3);border-radius:7px;padding:10px 12px;">
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px;">🏦 Absorption Institutionnelle</div>
+              <div style="font-size:12px;line-height:1.5;">${p.reasoning.absorption}</div>
+            </div>` : ''}
+            ${p.reasoning.divergence ? `
+            <div style="background:var(--bg3);border-radius:7px;padding:10px 12px;">
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px;">📐 Divergence Delta</div>
+              <div style="font-size:12px;line-height:1.5;">${p.reasoning.divergence}</div>
+            </div>` : ''}
+            ${p.reasoning.confluence ? `
+            <div style="background:var(--bg3);border-radius:7px;padding:10px 12px;">
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px;">🎯 Confluence</div>
+              <div style="font-size:12px;line-height:1.5;">${p.reasoning.confluence}</div>
+            </div>` : ''}
+            ${p.reasoning.pourquoi_signal ? `
+            <div style="background:${p.signal==='BUY'?'var(--buy-bg)':p.signal==='SELL'?'var(--sell-bg)':'var(--wait-bg)'};border:1px solid ${p.signal==='BUY'?'var(--buy-bdr)':p.signal==='SELL'?'var(--sell-bdr)':'var(--wait-bdr)'};border-radius:7px;padding:10px 12px;">
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px;">✅ Conclusion</div>
+              <div style="font-size:13px;font-weight:600;line-height:1.5;">${p.reasoning.pourquoi_signal}</div>
+            </div>` : ''}
+          </div>
+        </div>` : ''}
+
+      <!-- Confluence elements -->
+      ${p.confluence_elements?.length ? `
+        <div style="display:flex;flex-wrap:wrap;gap:5px;">
+          ${p.confluence_elements.map(e => `<span style="font-size:10px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 8px;color:var(--text);">✓ ${e}</span>`).join('')}
+        </div>` : ''}
+
       ${warningsHtml}
 
-      <div style="font-size:10px;color:var(--muted);text-align:right;">${new Date(p.timestamp).toLocaleTimeString('fr-FR')}</div>
+      <div style="font-size:10px;color:var(--muted);text-align:right;display:flex;justify-content:space-between;">
+        <span>Prix lu : <strong style="font-family:monospace">${p.current_price ?? '—'}</strong></span>
+        <span>${new Date(p.timestamp).toLocaleTimeString('fr-FR')}</span>
+      </div>
     </div>`;
 
   setStatus(`✅ Analyse reçue — ${p.signal} sur ${p.asset ?? '?'} (${p.confidence}%)`);
