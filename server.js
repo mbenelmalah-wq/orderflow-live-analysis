@@ -62,7 +62,16 @@ TYPE B — LECTURE COMPLÈTE :
   Ligne Delta    = delta net par bougie (lis les 10 derniers de gauche à droite)
   Ligne Cum.Delta = delta cumulé de la session (lis la DERNIÈRE valeur = la plus récente)
   Ligne Volume   = volume total par bougie
-  Flèches vertes ↑ = signaux BUY, flèches rouges ↓ = SELL, flèches bleues ↑ = BUY institutionnel fort
+  Flèches vertes ↑ = signaux BUY, flèches rouges ↓ = SELL, flèches bleues/cyan ↑↓ = signaux institutionnels forts
+
+  ══ RÈGLE CRITIQUE — SIGNE DES VALEURS DELTA (COULEUR = SIGNE) ══
+  Dans le tableau en bas, la COULEUR DE LA CELLULE détermine le signe de la valeur :
+  CELLULE VERTE  = valeur POSITIVE (ex: cellule verte "726" → Cum.Delta = +726)
+  CELLULE ROUGE  = valeur NÉGATIVE (ex: cellule rouge "726" → Cum.Delta = -726)
+  Cette règle s'applique à TOUTES les lignes : Delta, Cum.Delta, Max.Delta, Min.Delta.
+  Le signe "-" peut être absent ou illisible → utilise TOUJOURS la couleur de la cellule.
+  INTERDIT : lire "726" dans une cellule rouge et écrire +726. La cellule rouge = NÉGATIF = -726.
+  Si la cellule est rouge → le nombre est FORCÉMENT négatif, même sans signe visible.
 
 ════════════════════════════════════════════════════════
 ÉTAPE 2 — LES 4 FILTRES INSTITUTIONNELS (dans cet ordre de priorité)
@@ -71,6 +80,7 @@ TYPE B — LECTURE COMPLÈTE :
 ▶ FILTRE 1 — CUM DELTA : LA TENDANCE MAÎTRE DE LA SESSION
   Le Cum.Delta = pression nette TOTALE depuis l'ouverture de la session.
   C'est le filtre le plus important. Il définit le CONTEXTE.
+  RAPPEL SIGNE : cellule rouge = valeur négative. Lis "cellule rouge 726" → Cum.Delta = -726 (NÉGATIF).
 
   Cum.Delta fortement négatif (ex: -792, -1000...) = la session EST vendeuse.
     → Les acheteurs agressifs ont été dominés toute la session.
