@@ -74,6 +74,22 @@
     .share-hint { font-size: 13px; color: var(--muted); text-align: center; }
     canvas#capture { display: none; }
 
+    /* ── Crop overlay ── */
+    #cropCanvas {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: none; z-index: 10; border-radius: 8px;
+    }
+    #cropCanvas.active { display: block; cursor: crosshair; }
+    .crop-badge {
+      position: absolute; top: 8px; left: 8px; z-index: 11;
+      background: #6366f1cc; color: #fff; font-size: 10px; font-weight: 700;
+      padding: 3px 8px; border-radius: 4px; pointer-events: none; display: none;
+    }
+    .crop-badge.visible { display: block; }
+    .btn-crop { background: #6366f120; color: var(--primary); border: 1px solid #6366f140; }
+    .btn-crop:hover { background: #6366f130; }
+    .btn-crop.active { background: var(--primary); color: #fff; }
+
     /* ── Buttons ── */
     .btn { padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all .15s; display: inline-flex; align-items: center; gap: 7px; }
     .btn-primary { background: var(--primary); color: #fff; }
@@ -200,6 +216,8 @@
       </div>
       <div class="share-zone" id="shareZone">
         <video id="screenVideo" autoplay muted playsinline></video>
+        <canvas id="cropCanvas"></canvas>
+        <div class="crop-badge" id="cropBadge">📐 ZONE SÉLECTIONNÉE</div>
         <div id="sharePlaceholder" style="display:flex;flex-direction:column;align-items:center;gap:10px;">
           <div class="share-icon">🖥️</div>
           <div class="share-hint">Clique sur <strong>Partager l'écran</strong><br>puis sélectionne la fenêtre NinjaTrader</div>
@@ -210,6 +228,7 @@
       <div class="controls">
         <button class="btn btn-primary" id="btnShare" onclick="startShare()">▶ Partager l'écran</button>
         <button class="btn btn-stop" id="btnStop" onclick="stopShare()" style="display:none;">⏹ Arrêter</button>
+        <button class="btn btn-crop" id="btnCrop" onclick="toggleCropMode()" style="display:none;" title="Dessine un rectangle pour sélectionner uniquement la zone du chart NinjaTrader">📐 Recadrer zone</button>
         <button class="btn btn-analyze" id="btnAnalyze" onclick="triggerAnalysis()" disabled>🔍 Analyser maintenant</button>
       </div>
       <div class="status-bar" id="statusBar">
@@ -254,6 +273,140 @@ let isAnalyzing = false;
 const video = document.getElementById('screenVideo');
 const canvas = document.getElementById('capture');
 const ctx = canvas.getContext('2d');
+
+// ── Crop / Recadrage ──────────────────────────────────────────────────────────
+const cropCanvas = document.getElementById('cropCanvas');
+const cropCtx = cropCanvas.getContext('2d');
+let cropMode = false;
+let cropSelection = null; // { x, y, w, h } en coordonnées relatives 0-1
+let dragStart = null;
+let dragCurrent = null;
+
+function toggleCropMode() {
+  cropMode = !cropMode;
+  const btn = document.getElementById('btnCrop');
+  btn.classList.toggle('active', cropMode);
+  btn.textContent = cropMode ? '✕ Annuler recadrage' : '📐 Recadrer zone';
+  cropCanvas.classList.toggle('active', cropMode);
+  if (!cropMode) {
+    // Garde la sélection existante mais sort du mode édition
+    drawCropOverlay();
+  }
+}
+
+function resetCrop() {
+  cropSelection = null;
+  cropMode = false;
+  dragStart = null;
+  dragCurrent = null;
+  cropCanvas.classList.remove('active');
+  document.getElementById('btnCrop').classList.remove('active');
+  document.getElementById('btnCrop').textContent = '📐 Recadrer zone';
+  document.getElementById('cropBadge').classList.remove('visible');
+  cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+}
+
+function resizeCropCanvas() {
+  const zone = document.getElementById('shareZone');
+  cropCanvas.width  = zone.clientWidth;
+  cropCanvas.height = zone.clientHeight;
+  drawCropOverlay();
+}
+
+function getRelativePos(e) {
+  const rect = cropCanvas.getBoundingClientRect();
+  return {
+    x: (e.clientX - rect.left) / rect.width,
+    y: (e.clientY - rect.top)  / rect.height
+  };
+}
+
+function drawCropOverlay() {
+  cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+  const sel = dragCurrent && dragStart ? {
+    x: Math.min(dragStart.x, dragCurrent.x),
+    y: Math.min(dragStart.y, dragCurrent.y),
+    w: Math.abs(dragCurrent.x - dragStart.x),
+    h: Math.abs(dragCurrent.y - dragStart.y)
+  } : cropSelection;
+
+  if (!sel) return;
+
+  const cw = cropCanvas.width, ch = cropCanvas.height;
+  const px = sel.x * cw, py = sel.y * ch;
+  const pw = sel.w * cw, ph = sel.h * ch;
+
+  // Assombrir l'extérieur
+  cropCtx.fillStyle = 'rgba(0,0,0,0.55)';
+  cropCtx.fillRect(0, 0, cw, ch);
+
+  // Découper la zone sélectionnée
+  cropCtx.clearRect(px, py, pw, ph);
+
+  // Bordure de sélection
+  cropCtx.strokeStyle = '#6366f1';
+  cropCtx.lineWidth = 2;
+  cropCtx.setLineDash([6, 3]);
+  cropCtx.strokeRect(px, py, pw, ph);
+
+  // Coins
+  const c = 10;
+  cropCtx.setLineDash([]);
+  cropCtx.strokeStyle = '#fff';
+  cropCtx.lineWidth = 2;
+  [[px,py],[px+pw,py],[px,py+ph],[px+pw,py+ph]].forEach(([cx,cy]) => {
+    const sx = cx === px ? 1 : -1, sy = cy === py ? 1 : -1;
+    cropCtx.beginPath();
+    cropCtx.moveTo(cx, cy + sy*c); cropCtx.lineTo(cx, cy); cropCtx.lineTo(cx + sx*c, cy);
+    cropCtx.stroke();
+  });
+
+  // Label dimensions
+  if (pw > 60 && ph > 20) {
+    cropCtx.fillStyle = '#6366f1cc';
+    cropCtx.fillRect(px, py - 20, 90, 18);
+    cropCtx.fillStyle = '#fff';
+    cropCtx.font = '11px monospace';
+    cropCtx.fillText(`${Math.round(sel.w*100)}% × ${Math.round(sel.h*100)}%`, px+5, py-6);
+  }
+}
+
+// Events recadrage
+cropCanvas.addEventListener('mousedown', e => {
+  if (!cropMode) return;
+  dragStart = getRelativePos(e);
+  dragCurrent = null;
+});
+
+cropCanvas.addEventListener('mousemove', e => {
+  if (!cropMode || !dragStart) return;
+  dragCurrent = getRelativePos(e);
+  drawCropOverlay();
+});
+
+cropCanvas.addEventListener('mouseup', e => {
+  if (!cropMode || !dragStart) return;
+  dragCurrent = getRelativePos(e);
+  const w = Math.abs(dragCurrent.x - dragStart.x);
+  const h = Math.abs(dragCurrent.y - dragStart.y);
+
+  if (w > 0.05 && h > 0.05) {
+    cropSelection = {
+      x: Math.min(dragStart.x, dragCurrent.x),
+      y: Math.min(dragStart.y, dragCurrent.y),
+      w, h
+    };
+    document.getElementById('cropBadge').classList.add('visible');
+    setStatus(`✅ Zone recadrée : ${Math.round(w*100)}% × ${Math.round(h*100)}% — Recadrage actif`);
+  }
+  dragStart = null;
+  dragCurrent = null;
+  cropMode = false;
+  cropCanvas.classList.remove('active');
+  document.getElementById('btnCrop').classList.remove('active');
+  document.getElementById('btnCrop').textContent = '📐 Recadrer zone';
+  drawCropOverlay();
+});
 
 // ── Horloge ───────────────────────────────────────────────────────────────────
 function updateClock() {
@@ -340,10 +493,14 @@ async function startShare() {
     document.getElementById('sharePlaceholder').style.display = 'none';
     document.getElementById('btnShare').style.display = 'none';
     document.getElementById('btnStop').style.display = 'inline-flex';
+    document.getElementById('btnCrop').style.display = 'inline-flex';
     document.getElementById('btnAnalyze').disabled = false;
-    setStatus('✅ Écran partagé — clique Analyser quand tu es prêt');
 
-    // Détecte si l'utilisateur stoppe le partage manuellement
+    // Resize crop canvas quand la vidéo est prête
+    video.addEventListener('loadedmetadata', resizeCropCanvas, { once: true });
+    window.addEventListener('resize', resizeCropCanvas);
+
+    setStatus('✅ Écran partagé — utilise 📐 Recadrer zone pour sélectionner uniquement le chart NinjaTrader');
     mediaStream.getVideoTracks()[0].onended = stopShare;
   } catch (err) {
     setStatus('❌ Partage annulé : ' + err.message, true);
@@ -355,11 +512,14 @@ function stopShare() {
   mediaStream = null;
   video.srcObject = null;
   isSharing = false;
+  resetCrop();
+  window.removeEventListener('resize', resizeCropCanvas);
 
   document.getElementById('shareZone').classList.remove('sharing');
   document.getElementById('sharePlaceholder').style.display = 'flex';
   document.getElementById('btnShare').style.display = 'inline-flex';
   document.getElementById('btnStop').style.display = 'none';
+  document.getElementById('btnCrop').style.display = 'none';
   document.getElementById('btnAnalyze').disabled = true;
   setStatus('Partage arrêté.');
 }
@@ -369,14 +529,31 @@ function triggerAnalysis() {
   if (!isSharing || !video.videoWidth) return setStatus('❌ Aucun écran partagé', true);
   if (wsStatus !== 'connected') return setStatus('❌ WebSocket déconnecté', true);
 
-  // Capture frame depuis la vidéo
-  canvas.width  = video.videoWidth;
-  canvas.height = video.videoHeight;
-  ctx.drawImage(video, 0, 0);
-  const imageData = canvas.toDataURL('image/jpeg', 0.92);
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
 
+  if (cropSelection) {
+    // Capture uniquement la zone recadrée, mise à l'échelle en pleine résolution
+    const sx = Math.round(cropSelection.x * vw);
+    const sy = Math.round(cropSelection.y * vh);
+    const sw = Math.round(cropSelection.w * vw);
+    const sh = Math.round(cropSelection.h * vh);
+
+    // Upscale × 1.5 pour meilleure lisibilité par Claude
+    canvas.width  = Math.min(sw * 1.5, 1920);
+    canvas.height = Math.min(sh * 1.5, 1080);
+    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    setStatus(`📤 Zone recadrée envoyée (${sw}×${sh}px → ${canvas.width}×${canvas.height}px)...`);
+  } else {
+    // Capture écran entier
+    canvas.width  = vw;
+    canvas.height = vh;
+    ctx.drawImage(video, 0, 0);
+    setStatus('📤 Écran entier envoyé — utilise 📐 Recadrer pour plus de précision...');
+  }
+
+  const imageData = canvas.toDataURL('image/jpeg', 0.95);
   ws.send(JSON.stringify({ type: 'frame', data: imageData }));
-  setStatus('📤 Image envoyée pour analyse...');
 }
 
 // ── Affichage signal ──────────────────────────────────────────────────────────
