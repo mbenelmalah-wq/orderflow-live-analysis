@@ -58,20 +58,33 @@ ORDRE CHRONOLOGIQUE — RÈGLE ABSOLUE :
   Le DERNIER chiffre de la séquence = bougie la plus à droite (la plus récente).
   JAMAIS mettre un delta ancien après un delta récent.
 
-TYPE B — LECTURE COMPLÈTE :
-  Ligne Delta    = delta net par bougie (lis les 10 derniers de gauche à droite)
-  Ligne Cum.Delta = delta cumulé de la session (lis la DERNIÈRE valeur = la plus récente)
-  Ligne Volume   = volume total par bougie
-  Flèches vertes ↑ = signaux BUY, flèches rouges ↓ = SELL, flèches bleues/cyan ↑↓ = signaux institutionnels forts
+TYPE B — STRUCTURE EXACTE DU TABLEAU (5 lignes, de haut en bas) :
+  ┌──────────────────────────────────────────────────────────┐
+  │ LIGNE 1 (top)  : Delta      = delta net par bougie       │
+  │ LIGNE 2        : Max. Delta = delta max de la bougie     │
+  │ LIGNE 3        : Min. Delta = delta min de la bougie     │
+  │ LIGNE 4        : Cum. Delta = delta CUMULÉ de la session │ ← CETTE LIGNE
+  │ LIGNE 5 (bas)  : Volume     = volume total par bougie    │
+  └──────────────────────────────────────────────────────────┘
 
-  ══ RÈGLE CRITIQUE — SIGNE DES VALEURS DELTA (COULEUR = SIGNE) ══
-  Dans le tableau en bas, la COULEUR DE LA CELLULE détermine le signe de la valeur :
-  CELLULE VERTE  = valeur POSITIVE (ex: cellule verte "726" → Cum.Delta = +726)
-  CELLULE ROUGE  = valeur NÉGATIVE (ex: cellule rouge "726" → Cum.Delta = -726)
-  Cette règle s'applique à TOUTES les lignes : Delta, Cum.Delta, Max.Delta, Min.Delta.
-  Le signe "-" peut être absent ou illisible → utilise TOUJOURS la couleur de la cellule.
-  INTERDIT : lire "726" dans une cellule rouge et écrire +726. La cellule rouge = NÉGATIF = -726.
-  Si la cellule est rouge → le nombre est FORCÉMENT négatif, même sans signe visible.
+  LECTURE DU CUM.DELTA — RÈGLE PRÉCISE :
+  → 4ème ligne depuis le haut = 2ème depuis le bas (juste au-dessus de Volume)
+  → Lis la valeur de la colonne la plus à DROITE = bougie la plus récente
+  → Valeur typiquement grande en valeur absolue (ex: -306, -1070, +726...)
+  → NE PAS confondre avec ligne Delta (ligne 1 = valeurs petites) ni Min.Delta (ligne 3)
+  → Si tu vois une ligne avec des grandes valeurs comme -306, -710, -950 = c'est Cum.Delta
+
+  LECTURE DELTA/BOUGIE :
+  → Ligne 1 (Delta) : lis les 10 dernières valeurs de gauche à droite
+
+  Flèches vertes ↑ = BUY | Flèches rouges ↓ = SELL
+  Flèches bleues/cyan ↑ = BUY institutionnel | Flèches bleues/cyan ↓ = SELL institutionnel
+
+  ══ RÈGLE ABSOLUE — COULEUR = SIGNE ══
+  CELLULE VERTE = POSITIF  →  "306" vert  = +306
+  CELLULE ROUGE = NÉGATIF  →  "306" rouge = -306
+  Le tiret "-" peut être illisible ou absent → la COULEUR prime TOUJOURS.
+  Rouge = négatif. Sans exception.
 
 ════════════════════════════════════════════════════════
 ÉTAPE 2 — LES 4 FILTRES INSTITUTIONNELS (dans cet ordre de priorité)
