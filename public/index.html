@@ -231,6 +231,14 @@
         <button class="btn btn-crop" id="btnCrop" onclick="toggleCropMode()" style="display:none;" title="Dessine un rectangle pour sélectionner uniquement la zone du chart NinjaTrader">📐 Recadrer zone</button>
         <button class="btn btn-analyze" id="btnAnalyze" onclick="triggerAnalysis()" disabled>🔍 Analyser maintenant</button>
       </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 0 2px 0;">
+        <label style="font-size:11px;color:#64748b;white-space:nowrap;">Cum.Delta (optionnel) :</label>
+        <input id="cumDeltaInput" type="number" placeholder="ex: -339"
+          style="width:100px;background:#1a1e28;border:1px solid #ffffff22;border-radius:5px;
+                 color:#e2e8f0;font-size:12px;padding:4px 8px;outline:none;"
+          title="Tape la valeur exacte du Cum.Delta visible dans NinjaTrader (avec le signe -)"/>
+        <span id="cumDeltaHint" style="font-size:10px;color:#64748b;">Valeur de NinjaTrader → override la lecture auto</span>
+      </div>
       <div class="status-bar" id="statusBar">
         <span id="statusText">En attente de partage d'écran...</span>
       </div>
@@ -555,7 +563,12 @@ function triggerAnalysis() {
 
   // PNG lossless = couleurs exactes (rouge/vert des cellules préservés)
   const imageData = canvas.toDataURL('image/png');
-  ws.send(JSON.stringify({ type: 'frame', data: imageData }));
+  const cumDeltaOverride = document.getElementById('cumDeltaInput').value.trim();
+  ws.send(JSON.stringify({
+    type: 'frame',
+    data: imageData,
+    cum_delta_override: cumDeltaOverride !== '' ? parseFloat(cumDeltaOverride) : null
+  }));
 }
 
 // ── Affichage signal ──────────────────────────────────────────────────────────

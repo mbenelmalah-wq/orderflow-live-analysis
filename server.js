@@ -339,6 +339,9 @@ wss.on('connection', (ws) => {
 
     if (msg.type !== 'frame' || !msg.data) return;
 
+    const cumDeltaOverride = (msg.cum_delta_override !== undefined && msg.cum_delta_override !== null)
+      ? msg.cum_delta_override : null;
+
     send(ws, { type: 'analyzing' });
 
     const keepAlive = setInterval(() => {
@@ -370,11 +373,18 @@ wss.on('connection', (ws) => {
               type: 'text',
               text: `Analyse ce chart Belkhayate OrderFlow NinjaTrader.
 
+${cumDeltaOverride !== null ? `
+!!! VALEUR CUM.DELTA FOURNIE PAR LE TRADER (PRIORITE ABSOLUE) !!!
+CUM.DELTA = ${cumDeltaOverride}
+NE PAS lire le tableau pour le Cum.Delta. Utilise UNIQUEMENT cette valeur : ${cumDeltaOverride}
+cum_delta_cell_color = "${cumDeltaOverride < 0 ? 'RED' : 'GREEN'}"
+cum_delta = ${cumDeltaOverride}
+Cette valeur a ete saisie manuellement par le trader depuis NinjaTrader. Elle est fiable a 100%.
+` : `
 RAPPELS AVANT ANALYSE :
 1. COULEUR CELLULE = SIGNE : rouge -> negatif, vert -> positif
 2. Cum.Delta = 3eme ligne depuis le bas (grandes valeurs +/-200 a +/-2000)
-3. PILIER 1 PRIORITAIRE : si prix monte + Cum.Delta negatif = DIVERGENCE HAUSSIERE = BUY
-4. Cum.Delta negatif seul ne suffit PAS a donner un SELL si le prix monte
+`}
 
 Retourne UNIQUEMENT le JSON.`
             }
