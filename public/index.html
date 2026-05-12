@@ -539,11 +539,12 @@ function triggerAnalysis() {
     const sw = Math.round(cropSelection.w * vw);
     const sh = Math.round(cropSelection.h * vh);
 
-    // Upscale × 1.5 pour meilleure lisibilité par Claude
-    canvas.width  = Math.min(sw * 1.5, 1920);
-    canvas.height = Math.min(sh * 1.5, 1080);
+    // Upscale × 2.5 + PNG lossless pour préserver les couleurs rouge/vert des cellules
+    canvas.width  = Math.min(sw * 2.5, 2400);
+    canvas.height = Math.min(sh * 2.5, 1600);
+    ctx.imageSmoothingEnabled = false; // netteté maximale pour les cellules
     ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-    setStatus(`📤 Zone recadrée envoyée (${sw}×${sh}px → ${canvas.width}×${canvas.height}px)...`);
+    setStatus(`📤 Zone recadrée envoyée (${sw}×${sh}px → ${canvas.width}×${canvas.height}px, PNG)...`);
   } else {
     // Capture écran entier
     canvas.width  = vw;
@@ -552,7 +553,8 @@ function triggerAnalysis() {
     setStatus('📤 Écran entier envoyé — utilise 📐 Recadrer pour plus de précision...');
   }
 
-  const imageData = canvas.toDataURL('image/jpeg', 0.95);
+  // PNG lossless = couleurs exactes (rouge/vert des cellules préservés)
+  const imageData = canvas.toDataURL('image/png');
   ws.send(JSON.stringify({ type: 'frame', data: imageData }));
 }
 
