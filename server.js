@@ -87,47 +87,60 @@ ETAPE 2 - LES 5 PILIERS DE L'ORDERFLOW (ordre de priorite reel)
 
 PILIER 1 - DIVERGENCE PRIX / CUM.DELTA (signal le plus fort - prime sur tout)
 -------------------------------------------------------------------------------
-C'est LE signal institutionnel numero 1.
+C'est LE signal institutionnel numero 1. Mais tu dois identifier le bon type.
 
-DIVERGENCE HAUSSIERE (signal BUY fort) :
-  Prix fait des BAS DE PLUS EN PLUS HAUTS (ou monte)
-  MAIS Cum.Delta est negatif ou continue de baisser
-  -> Les acheteurs PAIENT DE PLUS EN PLUS CHER malgre la pression vendeuse
-  -> Les vendeurs sont ABSORBES = epuisement vendeur
-  -> Signal = BUY meme si Cum.Delta est negatif
-  EXEMPLE : prix monte de 4689 a 4701 + Cum.Delta = -306 = DIVERGENCE BULLISH = BUY
+DEFINITIONS EXACTES - LIRE ATTENTIVEMENT :
 
-DIVERGENCE BAISSIERE (signal SELL fort) :
-  Prix fait des HAUTS DE PLUS EN PLUS BAS (ou descend)
-  MAIS Cum.Delta est positif ou continue de monter
-  -> Les vendeurs PAIENT DE PLUS EN PLUS BAS malgre la pression acheteuse
-  -> Les acheteurs sont ABSORBES = epuisement acheteur
-  -> Signal = SELL meme si Cum.Delta est positif
+CONFIRMATION BAISSIERE (prix baisse + Cum.Delta negatif/baisse) :
+  -> Prix fait des creux de plus en plus bas SUR LES 15 DERNIERES BOUGIES
+  -> ET Cum.Delta est negatif ou de plus en plus negatif
+  -> Ce n'est PAS une divergence. C'est une TENDANCE CONFIRMEE.
+  -> Signal = SELL ou ATTENDRE (ne pas aller contre la tendance)
+  EXEMPLE : prix descend de 4682 a 4668 (DOWNTREND) + Cum.Delta = -339 = CONFIRMATION BEARISH = SELL
 
-CONFIRMATION (pas de divergence) :
-  Prix monte + Cum.Delta monte = trend haussier confirme -> BUY continuation
-  Prix baisse + Cum.Delta baisse = trend baissier confirme -> SELL continuation
+CONFIRMATION HAUSSIERE (prix monte + Cum.Delta positif) :
+  -> Prix fait des sommets de plus en plus hauts
+  -> ET Cum.Delta positif ou de plus en plus positif
+  -> Signal = BUY ou ATTENDRE
 
-REGLE CRITIQUE - A NE PAS OUBLIER :
-  Cum.Delta negatif + prix qui MONTE = DIVERGENCE HAUSSIERE -> BUY (pas SELL !)
-  Cum.Delta positif + prix qui BAISSE = DIVERGENCE BAISSIERE -> SELL (pas BUY !)
-  Un Cum.Delta negatif seul NE SUFFIT PAS a donner un signal SELL.
+VRAIE DIVERGENCE HAUSSIERE (signal BUY contre-tendance) :
+  CONDITION STRICTE : le prix doit faire des CREUX PLUS HAUTS (rebond) pendant que Cum.Delta RESTE negatif
+  -> Prix : creux precedent a 4680, nouveau creux a 4685 (plus haut !) malgre pression vendeuse
+  -> Cum.Delta : toujours negatif ou qui baisse
+  -> Les acheteurs repoussent le prix vers le haut malgre les vendeurs
+  -> Signal = BUY uniquement si le rebond du prix EST CONFIRME (2-3 bougies de hausse)
+  ATTENTION : un simple rebond de 1-2 bougies dans un DOWNTREND fort n'est PAS une divergence haussiere
 
-PILIER 2 - ABSORPTION (retournement a un niveau cle)
------------------------------------------------------
+VRAIE DIVERGENCE BAISSIERE (signal SELL contre-tendance) :
+  CONDITION STRICTE : prix fait des SOMMETS PLUS BAS pendant que Cum.Delta reste positif
+  -> Signal = SELL uniquement si la baisse est confirmee
+
+REGLE CRITIQUE :
+  Prix DOWNTREND sur 10+ bougies + Cum.Delta negatif = CONFIRMATION BEARISH = SELL (pas BUY !)
+  Prix UPTREND sur 10+ bougies + Cum.Delta positif = CONFIRMATION BULLISH = BUY (pas SELL !)
+  Prix DOWNTREND + Cum.Delta negatif + 1 bougie verte = rebond dans downtrend = PAS une divergence = ATTENDRE
+  Prix DOWNTREND + prix qui REBONDIT sur 3+ bougies + Cum.Delta negatif = VRAIE divergence haussiere = BUY
+
+PILIER 2 - ABSORPTION (retournement a un niveau cle - conditions strictes)
+---------------------------------------------------------------------------
 L'absorption = gros delta dans un sens + prix qui NE BOUGE PAS = institutionnels absorbent.
+ATTENTION : l'absorption n'est valide QUE si le prix TIENT le niveau PUIS repart dans le sens oppose.
 
-ABSORPTION ACHETEUSE (a un support) :
-  Gros deltas negatifs (-30, -40, -50) a un niveau de support
-  MAIS le prix tient ce niveau ou monte
-  -> Les acheteurs institutionnels absorbent toute la pression vendeuse
-  -> Signal = BUY fort (epuisement vendeur au support)
+ABSORPTION ACHETEUSE VALIDE (a un support) :
+  CONDITION 1 : gros deltas negatifs (-30, -40, -50, -70) a un niveau de support identifiable
+  CONDITION 2 : le prix TIENT ce niveau (ne fait pas de nouveaux plus bas apres les gros deltas)
+  CONDITION 3 : les bougies suivantes montrent un rebond (au moins 2 bougies vertes)
+  -> Signal = BUY fort SEULEMENT si les 3 conditions sont remplies
 
-ABSORPTION VENDEUSE (a une resistance) :
-  Gros deltas positifs (+30, +40) a une resistance
-  MAIS le prix ne monte pas ou recule
-  -> Les vendeurs institutionnels absorbent tous les acheteurs
-  -> Signal = SELL fort (epuisement acheteur a la resistance)
+  FAUSSE ABSORPTION (piege) :
+  Gros deltas negatifs dans un DOWNTREND fort
+  MAIS le prix continue de baisser apres (ou reste lateral brievement puis baisse encore)
+  -> Ce n'est PAS de l'absorption. C'est juste du volume de vente.
+  -> Ne pas appeler cela "absorption" si le prix continue de baisser.
+  EXEMPLE : deltas -71, -44 au milieu d'un downtrend de 15 bougies puis prix continue a baisser = FAUSSE ABSORPTION
+
+ABSORPTION VENDEUSE VALIDE (a une resistance) :
+  Gros deltas positifs + prix ne monte pas + bougies suivantes rouges = SELL fort
 
 EPUISEMENT DU CUM.DELTA :
   Cum.Delta atteint une valeur extreme ET ralentit (les increments deviennent petits)
@@ -195,26 +208,33 @@ SELL : Entry = prix actuel ou rebond sur resistance, Stop = au-dessus resistance
 ETAPE 4 - DECISION FINALE (matrice complete)
 ==============================================================
 
-SIGNAUX BUY FORTS :
-  Prix UPTREND + Cum.Delta negatif (divergence haussiere)                   -> BUY fort
-  Prix tient support + gros deltas negatifs absorbes                        -> BUY fort
-  Prix UPTREND + Cum.Delta monte (confirmation)                             -> BUY continuation
-  Plusieurs fleches cyan UP + prix qui monte                                -> BUY confirme
+SIGNAUX BUY FORTS (confluence 3+ piliers) :
+  Prix UPTREND confirme (10+ bougies) + Cum.Delta positif                  -> BUY fort (confirmation)
+  Prix rebondit (3+ bougies hausse) depuis support + Cum.Delta negatif     -> BUY (divergence reelle)
+  Prix tient support + gros deltas negatifs + rebond confirme ensuite      -> BUY (absorption valide)
+  Plusieurs fleches cyan UP + prix en hausse confirme                      -> BUY confirme
 
-SIGNAUX SELL FORTS :
-  Prix DOWNTREND + Cum.Delta positif (divergence baissiere)                 -> SELL fort
-  Prix bloque resistance + gros deltas positifs absorbes                    -> SELL fort
-  Prix DOWNTREND + Cum.Delta baisse (confirmation)                          -> SELL continuation
-  Plusieurs fleches cyan DOWN + prix qui baisse                             -> SELL confirme
+SIGNAUX SELL FORTS (confluence 3+ piliers) :
+  Prix DOWNTREND confirme (10+ bougies) + Cum.Delta negatif               -> SELL fort (confirmation)
+  Prix fait sommets plus bas + Cum.Delta positif                           -> SELL (divergence reelle)
+  Prix bloque resistance + gros deltas positifs + recul confirme           -> SELL (absorption valide)
+  Plusieurs fleches cyan DOWN + prix en baisse confirme                    -> SELL confirme
 
-ATTENDRE :
+ATTENDRE (signaux insuffisants) :
+  Prix DOWNTREND + 1-2 bougies de rebond (pas assez pour divergence)
+  Prix DOWNTREND + Cum.Delta negatif + signal BUY isole = rebond dans tendance -> ATTENDRE
   Signaux contradictoires entre les 5 piliers
   Cum.Delta neutre + prix en range sans direction
   Session Asie
 
-PIEGES A EVITER :
-  Cum.Delta tres negatif -> SELL immediat : FAUX si prix monte (c'est une divergence haussiere)
-  Cum.Delta tres positif -> BUY immediat : FAUX si prix baisse (c'est une divergence baissiere)
+PIEGES CRITIQUES A IDENTIFIER :
+  PIEGE 1 : Prix DOWNTREND 10+ bougies + Cum.Delta negatif + fleche BUY = TRAP HAUSSIER
+    -> La fleche BUY dans un downtrend fort = signal de continuation baissiere probable
+    -> Reponse = SELL ou ATTENDRE, JAMAIS BUY
+  PIEGE 2 : Gros deltas negatifs dans un downtrend = continuation vendeuse, pas absorption
+    -> L'absorption n'est valide QUE si le prix rebondit apres (3+ bougies vertes)
+  PIEGE 3 : Cum.Delta tres negatif + prix qui baisse = CONFIRMATION BEARISH, pas divergence
+    -> La divergence haussiere = prix monte MALGRE Cum.Delta negatif (pas prix qui baisse)
 
 Session :
   Overlap Londres/NY -> +10 confiance (max 95)
