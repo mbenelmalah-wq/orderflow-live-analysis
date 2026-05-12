@@ -58,34 +58,42 @@ ORDRE CHRONOLOGIQUE — RÈGLE ABSOLUE :
   Le DERNIER chiffre de la séquence = bougie la plus à droite (la plus récente).
   JAMAIS mettre un delta ancien après un delta récent.
 
+  ══════════════════════════════════════════════════════════════
+  REGLE COULEUR = SIGNE (A APPLIQUER AVANT TOUTE LECTURE DE VALEUR)
+  ══════════════════════════════════════════════════════════════
+  CELLULE ROUGE  = valeur NEGATIVE  : tu vois "306" en rouge  -> cum_delta = -306
+  CELLULE VERTE  = valeur POSITIVE  : tu vois "306" en vert   -> cum_delta = +306
+  Le tiret peut etre coupe ou invisible. La COULEUR est le seul indicateur fiable du signe.
+  JAMAIS retourner une valeur positive si la cellule est rouge.
+  JAMAIS retourner une valeur negative si la cellule est verte.
+  ══════════════════════════════════════════════════════════════
+
 TYPE B — STRUCTURE EXACTE DU TABLEAU (ordre confirmé par l'utilisateur, de bas en haut) :
-  ┌──────────────────────────────────────────────────────────────────────┐
-  │ LIGNE 7 (haut+) : Ask        = volume ask                           │
-  │ LIGNE 6         : Bid        = volume bid                           │
-  │ LIGNE 5         : Delta      = delta net par bougie (ex: 23)        │
-  │ LIGNE 4         : Volume     = volume total par bougie (ex: 69)     │
-  │ LIGNE 3         : Cum. Delta = delta CUMULÉ session (ex: -306)      │ ← PRIORITAIRE
-  │ LIGNE 2         : Max. Delta = delta maximum de la bougie (ex: 25)  │
-  │ LIGNE 1 (bas)   : Min. Delta = delta minimum de la bougie (ex: -3)  │
-  └──────────────────────────────────────────────────────────────────────┘
 
-  LECTURE DU CUM.DELTA — RÈGLE ABSOLUE :
-  → C'est la 3ème ligne depuis le BAS (au-dessus de Max.Delta et Min.Delta)
-  → Valeurs typiquement grandes : -306, -1070, +726, -950...
-  → Lis la colonne la plus à DROITE = bougie la plus récente = valeur de session actuelle
-  → NE PAS confondre avec Delta (ligne 5) ni Volume (ligne 4)
+  LIGNE 7 (haut) : Ask        = volume ask
+  LIGNE 6        : Bid        = volume bid
+  LIGNE 5        : Delta      = delta net par bougie          (petites valeurs: 23, -7, 16...)
+  LIGNE 4        : Volume     = volume total par bougie       (valeurs: 69, 120, 200...)
+  LIGNE 3        : Cum. Delta = delta CUMULE session ★        (grandes valeurs: -306, -1070, +726...)
+  LIGNE 2        : Max. Delta = delta maximum de la bougie    (valeurs: 25, 44, 50...)
+  LIGNE 1 (bas)  : Min. Delta = delta minimum de la bougie   (valeurs: -3, -12, -30...)
 
-  LECTURE DELTA/BOUGIE :
-  → Ligne 5 (haut, Delta) : lis les 10 dernières valeurs de gauche à droite
+  PROCEDURE LECTURE CUM.DELTA (ligne 3) :
+  1. Repere la 3eme ligne depuis le bas (au-dessus de Max.Delta et Min.Delta)
+  2. Lis la cellule la plus a DROITE (bougie la plus recente)
+  3. REGARDE LA COULEUR : rouge -> negatif / verte -> positif
+  4. Applique le signe correct avant d'ecrire la valeur dans cum_delta
+  EXEMPLE: cellule rouge affichant "306" -> cum_delta = -306
+  EXEMPLE: cellule verte affichant "306" -> cum_delta = +306
 
-  Flèches vertes ↑ = BUY | Flèches rouges ↓ = SELL
-  Flèches bleues/cyan ↑ = BUY institutionnel | Flèches bleues/cyan ↓ = SELL institutionnel
+  VERIFICATION : si |cum_delta| < 100, tu as probablement lu Delta (ligne 5) au lieu de Cum.Delta (ligne 3).
+  Cum.Delta de session = toujours grande valeur en absolu (typiquement 200 a 2000).
 
-  ══ RÈGLE ABSOLUE — COULEUR = SIGNE (priorité sur tout) ══
-  CELLULE VERTE = valeur POSITIVE  →  "306" vert  = +306
-  CELLULE ROUGE = valeur NÉGATIVE  →  "306" rouge = -306
-  Le tiret "-" peut être illisible → la COULEUR prime TOUJOURS sur le signe visible.
-  Rouge = négatif. Sans aucune exception.
+  LECTURE DELTA/BOUGIE (ligne 5) :
+  Lis les 10 dernieres valeurs de gauche a droite. Meme regle couleur.
+
+  Fleches vertes UP = BUY | Fleches rouges DOWN = SELL
+  Fleches bleues/cyan UP = BUY institutionnel | Fleches bleues/cyan DOWN = SELL institutionnel
 
 ════════════════════════════════════════════════════════
 ÉTAPE 2 — LES 4 FILTRES INSTITUTIONNELS (dans cet ordre de priorité)
@@ -182,7 +190,8 @@ FORMAT JSON OBLIGATOIRE (retourne exactement ceci, rien d'autre) :
   "current_price": prix actuel LU SUR L'AXE DROIT (number, obligatoire, jamais null),
   "confidence": 0-100,
 
-  "cum_delta": valeur du Cum.Delta LUE sur l'image (number, ex: -792),
+  "cum_delta_cell_color": "RED" | "GREEN",
+  "cum_delta": valeur du Cum.Delta avec signe correct selon couleur (number, ex: -792 si cellule rouge),
   "cum_delta_context": "FORTEMENT_NÉGATIF" | "NÉGATIF" | "NEUTRE" | "POSITIF" | "FORTEMENT_POSITIF",
   "cum_delta_trap": true | false,
   "cum_delta_trap_explanation": "si trap=true : pourquoi les deltas positifs récents sont un piège dans ce contexte",
@@ -290,7 +299,15 @@ wss.on('connection', (ws) => {
             },
             {
               type: 'text',
-              text: 'Analyse ce chart Belkhayate OrderFlow NinjaTrader. Exécute les 4 étapes et retourne UNIQUEMENT le JSON.'
+              text: `Analyse ce chart Belkhayate OrderFlow NinjaTrader.
+
+RAPPEL CRITIQUE AVANT TOUT :
+- CELLULE ROUGE dans le tableau = valeur NEGATIVE (ex: "306" rouge = -306)
+- CELLULE VERTE dans le tableau = valeur POSITIVE (ex: "306" vert = +306)
+- Le tiret peut etre invisible. Regarde LA COULEUR avant de lire chaque chiffre.
+- Cum.Delta (3eme ligne depuis le bas) : lis sa couleur, applique le signe, PUIS ecris la valeur.
+
+Exécute les 4 étapes et retourne UNIQUEMENT le JSON.`
             }
           ]
         }]

@@ -624,7 +624,9 @@ function onSignal(p) {
           <div class="metric-value ${confClass==='high'?'bull':confClass==='medium'?'neutral':'bear'}">${p.orderflow_score ?? '—'}/100</div>
         </div>
         <div class="metric">
-          <div class="metric-label">Cum. Delta session</div>
+          <div class="metric-label">Cum. Delta session
+            ${p.cum_delta_cell_color ? `<span style="margin-left:6px;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;background:${p.cum_delta_cell_color==='RED'?'#f8717130':'#34d39930'};color:${p.cum_delta_cell_color==='RED'?'#f87171':'#34d399'};">CELL ${p.cum_delta_cell_color}</span>` : ''}
+          </div>
           <div class="metric-value ${p.cum_delta > 0 ? 'bull' : p.cum_delta < 0 ? 'bear' : 'neutral'}">${p.cum_delta ?? '—'}</div>
         </div>
         <div class="metric" style="grid-column:span 2;${p.cum_delta_trap ? 'border:1px solid var(--sell-bdr);background:var(--sell-bg)' : ''}">
