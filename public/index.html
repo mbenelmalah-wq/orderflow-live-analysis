@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OrderFlow Live Analysis — Belkhayate</title>
+  <style>
+    :root {
+      --bg:        #0d0f14;
+      --bg2:       #13161e;
+      --bg3:       #1a1e28;
+      --border:    #ffffff14;
+      --text:      #e2e8f0;
+      --muted:     #64748b;
+      --buy:       #34d399;
+      --buy-bg:    #34d39915;
+      --buy-bdr:   #34d39940;
+      --sell:      #f87171;
+      --sell-bg:   #f8717115;
+      --sell-bdr:  #f8717140;
+      --wait:      #fbbf24;
+      --wait-bg:   #fbbf2415;
+      --wait-bdr:  #fbbf2440;
+      --primary:   #6366f1;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+    /* ── Header ── */
+    .header {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .logo { width: 32px; height: 32px; background: var(--primary); border-radius: 8px;
+            display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 14px; color: #fff; }
+    .title { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
+    .subtitle { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+    .clock { font-family: monospace; font-size: 13px; color: var(--muted); }
+    .ws-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; }
+    .ws-dot.connected { background: var(--buy); box-shadow: 0 0 6px var(--buy); }
+    .ws-dot.analyzing { background: var(--wait); animation: pulse 1s infinite; }
+    .ws-dot.error { background: var(--sell); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    /* ── Layout ── */
+    .main { display: grid; grid-template-columns: 1fr 380px; gap: 16px; padding: 16px 24px; max-width: 1400px; margin: 0 auto; }
+    @media(max-width:900px){ .main{ grid-template-columns:1fr; } }
+
+    /* ── Card ── */
+    .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+    .card-title { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
+
+    /* ── Session bar ── */
+    .session-bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: var(--bg3); border-radius: 8px; margin-bottom: 16px; border: 1px solid var(--border); }
+    .session-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .session-dot.max  { background: var(--buy); box-shadow: 0 0 6px var(--buy); }
+    .session-dot.high { background: #60a5fa; }
+    .session-dot.medium { background: var(--wait); }
+    .session-dot.low  { background: var(--muted); }
+    .session-dot.closed { background: var(--sell); }
+    .session-label { font-size: 12px; font-weight: 600; }
+    .session-time  { font-size: 11px; color: var(--muted); margin-left: auto; font-family: monospace; }
+
+    /* ── Screen share zone ── */
+    .share-zone { border: 2px dashed var(--border); border-radius: 10px; min-height: 320px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; position: relative; overflow: hidden; transition: border-color .2s; }
+    .share-zone.sharing { border-color: var(--primary); border-style: solid; }
+    .share-zone video { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; display: none; }
+    .share-zone.sharing video { display: block; }
+    .share-icon { font-size: 40px; color: var(--muted); }
+    .share-hint { font-size: 13px; color: var(--muted); text-align: center; }
+    canvas#capture { display: none; }
+
+    /* ── Buttons ── */
+    .btn { padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all .15s; display: inline-flex; align-items: center; gap: 7px; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { filter: brightness(1.1); }
+    .btn-danger  { background: #ef444420; color: var(--sell); border: 1px solid var(--sell-bdr); }
+    .btn-danger:hover { background: #ef444430; }
+    .btn-analyze { background: var(--buy-bg); color: var(--buy); border: 1px solid var(--buy-bdr); padding: 12px 28px; font-size: 14px; }
+    .btn-analyze:hover:not(:disabled) { background: #34d39930; }
+    .btn-analyze:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-stop { background: var(--sell-bg); color: var(--sell); border: 1px solid var(--sell-bdr); }
+
+    .controls { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; align-items: center; }
+
+    /* ── Signal card ── */
+    .signal-main { padding: 20px; border-radius: 10px; border: 1px solid; display: flex; flex-direction: column; gap: 14px; }
+    .signal-main.BUY     { background: var(--buy-bg);  border-color: var(--buy-bdr); }
+    .signal-main.SELL    { background: var(--sell-bg); border-color: var(--sell-bdr); }
+    .signal-main.ATTENDRE{ background: var(--wait-bg); border-color: var(--wait-bdr); }
+
+    .signal-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .signal-badge { font-family: monospace; font-size: 22px; font-weight: 900; padding: 8px 18px; border-radius: 8px; border: 2px solid; }
+    .signal-badge.BUY  { color: var(--buy);  background: var(--buy-bg);  border-color: var(--buy-bdr); }
+    .signal-badge.SELL { color: var(--sell); background: var(--sell-bg); border-color: var(--sell-bdr); }
+    .signal-badge.ATTENDRE { color: var(--wait); background: var(--wait-bg); border-color: var(--wait-bdr); }
+
+    .signal-asset { font-size: 20px; font-weight: 700; }
+    .signal-tf    { font-size: 11px; color: var(--muted); font-family: monospace; margin-top: 2px; }
+    .signal-synth { font-size: 13px; color: var(--text); line-height: 1.5; }
+
+    /* ── Confidence bar ── */
+    .conf-row { display: flex; align-items: center; gap: 10px; }
+    .conf-label { font-size: 11px; color: var(--muted); white-space: nowrap; width: 70px; }
+    .conf-bar { flex: 1; height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .conf-fill { height: 100%; border-radius: 99px; transition: width .6s ease; }
+    .conf-fill.high   { background: var(--buy); }
+    .conf-fill.medium { background: var(--wait); }
+    .conf-fill.low    { background: var(--sell); }
+    .conf-value { font-family: monospace; font-size: 12px; font-weight: 700; width: 36px; text-align: right; }
+
+    /* ── Grid métriques ── */
+    .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .metric { background: var(--bg3); border-radius: 8px; padding: 10px 12px; }
+    .metric-label { font-size: 10px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin-bottom: 4px; }
+    .metric-value { font-family: monospace; font-size: 14px; font-weight: 700; }
+    .metric-value.bull { color: var(--buy); }
+    .metric-value.bear { color: var(--sell); }
+    .metric-value.neutral { color: var(--wait); }
+
+    /* ── Niveaux ── */
+    .levels-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .level-item { display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; background: var(--bg3); border-radius: 6px; font-size: 12px; }
+    .level-key { color: var(--muted); }
+    .level-val { font-family: monospace; font-weight: 700; }
+    .level-val.entry { color: var(--primary); }
+    .level-val.sl    { color: var(--sell); }
+    .level-val.tp    { color: var(--buy); }
+    .level-val.neutral { color: var(--text); }
+
+    /* ── Warnings ── */
+    .warnings { display: flex; flex-direction: column; gap: 5px; }
+    .warning-item { font-size: 11px; color: var(--wait); background: var(--wait-bg); border: 1px solid var(--wait-bdr); border-radius: 5px; padding: 5px 9px; }
+
+    /* ── Placeholder "en attente" ── */
+    .waiting-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 40px 20px; color: var(--muted); text-align: center; }
+    .waiting-icon { font-size: 36px; opacity: .4; }
+    .waiting-text { font-size: 13px; }
+    .analyzing-state { display: flex; align-items: center; gap: 10px; color: var(--wait); font-size: 13px; padding: 20px; }
+    .spinner { width: 18px; height: 18px; border: 2px solid var(--wait-bdr); border-top-color: var(--wait); border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Historique ── */
+    .history-list { display: flex; flex-direction: column; gap: 7px; max-height: 340px; overflow-y: auto; }
+    .history-list::-webkit-scrollbar { width: 4px; }
+    .history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    .history-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--bg3); border-radius: 8px; border: 1px solid var(--border); font-size: 12px; }
+    .h-badge { font-family: monospace; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; }
+    .h-badge.BUY     { color: var(--buy);  background: var(--buy-bg);  }
+    .h-badge.SELL    { color: var(--sell); background: var(--sell-bg); }
+    .h-badge.ATTENDRE{ color: var(--wait); background: var(--wait-bg); }
+    .h-asset  { font-weight: 700; min-width: 55px; }
+    .h-conf   { color: var(--muted); font-family: monospace; }
+    .h-synth  { color: var(--muted); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .h-time   { color: var(--muted); font-family: monospace; font-size: 10px; margin-left: auto; white-space: nowrap; }
+    .empty-history { text-align: center; color: var(--muted); font-size: 12px; padding: 20px; }
+
+    /* ── Status bar ── */
+    .status-bar { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; padding: 6px 0 0; }
+    .status-bar.error { color: var(--sell); }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <div class="logo">OF</div>
+    <div>
+      <div class="title">OrderFlow Live Analysis</div>
+      <div class="subtitle">Belkhayate OrderFlow — NinjaTrader</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="clock" id="clock">--:--:--</div>
+    <span class="ws-dot" id="wsDot" title="WebSocket"></span>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- Colonne gauche : screen share + controls -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+
+    <!-- Session -->
+    <div class="session-bar" id="sessionBar">
+      <span class="session-dot" id="sessionDot"></span>
+      <span class="session-label" id="sessionLabel">Chargement...</span>
+      <span class="session-time" id="sessionTime"></span>
+    </div>
+
+    <!-- Zone de partage d'écran -->
+    <div class="card">
+      <div class="card-title">
+        <span>🖥</span> Écran partagé — NinjaTrader
+      </div>
+      <div class="share-zone" id="shareZone">
+        <video id="screenVideo" autoplay muted playsinline></video>
+        <div id="sharePlaceholder" style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+          <div class="share-icon">🖥️</div>
+          <div class="share-hint">Clique sur <strong>Partager l'écran</strong><br>puis sélectionne la fenêtre NinjaTrader</div>
+        </div>
+      </div>
+      <canvas id="capture"></canvas>
+
+      <div class="controls">
+        <button class="btn btn-primary" id="btnShare" onclick="startShare()">▶ Partager l'écran</button>
+        <button class="btn btn-stop" id="btnStop" onclick="stopShare()" style="display:none;">⏹ Arrêter</button>
+        <button class="btn btn-analyze" id="btnAnalyze" onclick="triggerAnalysis()" disabled>🔍 Analyser maintenant</button>
+      </div>
+      <div class="status-bar" id="statusBar">
+        <span id="statusText">En attente de partage d'écran...</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Colonne droite : signal + historique -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+
+    <!-- Signal actuel -->
+    <div class="card">
+      <div class="card-title"><span>⚡</span> Signal en cours</div>
+      <div id="signalContainer">
+        <div class="waiting-state">
+          <div class="waiting-icon">📡</div>
+          <div class="waiting-text">En attente du premier signal<br><span style="font-size:11px;opacity:.6;">Partage l'écran puis clique Analyser</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Historique -->
+    <div class="card">
+      <div class="card-title"><span>🕐</span> Historique <span id="histCount" style="color:var(--muted);font-size:10px;"></span></div>
+      <div class="history-list" id="historyList">
+        <div class="empty-history">Aucune analyse pour l'instant</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── État global ───────────────────────────────────────────────────────────────
+let ws = null;
+let wsStatus = 'disconnected';
+let mediaStream = null;
+let isSharing = false;
+let isAnalyzing = false;
+const video = document.getElementById('screenVideo');
+const canvas = document.getElementById('capture');
+const ctx = canvas.getContext('2d');
+
+// ── Horloge ───────────────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('fr-FR') + ' · UTC' +
+    (now.getTimezoneOffset() > 0 ? '-' : '+') +
+    Math.abs(now.getTimezoneOffset() / 60);
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Session ───────────────────────────────────────────────────────────────────
+async function refreshSession() {
+  try {
+    const r = await fetch('/api/session');
+    const s = await r.json();
+    document.getElementById('sessionDot').className = `session-dot ${s.quality}`;
+    document.getElementById('sessionLabel').textContent = s.label;
+    const utc = new Date().toUTCString().match(/\d{2}:\d{2}/)?.[0] ?? '';
+    document.getElementById('sessionTime').textContent = `UTC ${utc}`;
+  } catch {}
+}
+refreshSession();
+setInterval(refreshSession, 60000);
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+function connectWs() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}/ws/live`);
+
+  ws.onopen = () => setWsStatus('connected');
+  ws.onclose = () => {
+    setWsStatus('disconnected');
+    setTimeout(connectWs, 3000); // reconnexion auto
+  };
+  ws.onerror = () => setWsStatus('error');
+
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'connected')  setWsStatus('connected');
+    if (msg.type === 'analyzing')  setAnalyzing(true);
+    if (msg.type === 'keepalive')  return;
+    if (msg.type === 'signal')     onSignal(msg.payload);
+    if (msg.type === 'error')      onError(msg.message);
+  };
+}
+connectWs();
+
+function setWsStatus(s) {
+  wsStatus = s;
+  const dot = document.getElementById('wsDot');
+  dot.className = `ws-dot ${s}`;
+  dot.title = s;
+  if (s !== 'analyzing') setAnalyzing(false);
+}
+
+function setAnalyzing(v) {
+  isAnalyzing = v;
+  const dot = document.getElementById('wsDot');
+  if (v) dot.className = 'ws-dot analyzing';
+  document.getElementById('btnAnalyze').disabled = v || !isSharing;
+  if (v) {
+    document.getElementById('signalContainer').innerHTML = `
+      <div class="analyzing-state">
+        <div class="spinner"></div>
+        <span>Analyse en cours — Claude Vision analyse votre chart...</span>
+      </div>`;
+    setStatus('⏳ Analyse en cours...');
+  }
+}
+
+// ── Screen share ──────────────────────────────────────────────────────────────
+async function startShare() {
+  try {
+    mediaStream = await navigator.mediaDevices.getDisplayMedia({
+      video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 5 } },
+      audio: false
+    });
+    video.srcObject = mediaStream;
+    isSharing = true;
+
+    document.getElementById('shareZone').classList.add('sharing');
+    document.getElementById('sharePlaceholder').style.display = 'none';
+    document.getElementById('btnShare').style.display = 'none';
+    document.getElementById('btnStop').style.display = 'inline-flex';
+    document.getElementById('btnAnalyze').disabled = false;
+    setStatus('✅ Écran partagé — clique Analyser quand tu es prêt');
+
+    // Détecte si l'utilisateur stoppe le partage manuellement
+    mediaStream.getVideoTracks()[0].onended = stopShare;
+  } catch (err) {
+    setStatus('❌ Partage annulé : ' + err.message, true);
+  }
+}
+
+function stopShare() {
+  if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+  mediaStream = null;
+  video.srcObject = null;
+  isSharing = false;
+
+  document.getElementById('shareZone').classList.remove('sharing');
+  document.getElementById('sharePlaceholder').style.display = 'flex';
+  document.getElementById('btnShare').style.display = 'inline-flex';
+  document.getElementById('btnStop').style.display = 'none';
+  document.getElementById('btnAnalyze').disabled = true;
+  setStatus('Partage arrêté.');
+}
+
+// ── Capture & envoi ───────────────────────────────────────────────────────────
+function triggerAnalysis() {
+  if (!isSharing || !video.videoWidth) return setStatus('❌ Aucun écran partagé', true);
+  if (wsStatus !== 'connected') return setStatus('❌ WebSocket déconnecté', true);
+
+  // Capture frame depuis la vidéo
+  canvas.width  = video.videoWidth;
+  canvas.height = video.videoHeight;
+  ctx.drawImage(video, 0, 0);
+  const imageData = canvas.toDataURL('image/jpeg', 0.92);
+
+  ws.send(JSON.stringify({ type: 'frame', data: imageData }));
+  setStatus('📤 Image envoyée pour analyse...');
+}
+
+// ── Affichage signal ──────────────────────────────────────────────────────────
+function onSignal(p) {
+  setAnalyzing(false);
+  setWsStatus('connected');
+
+  const confClass = p.confidence >= 70 ? 'high' : p.confidence >= 45 ? 'medium' : 'low';
+  const deltaClass = p.delta_bias === 'HAUSSIER' ? 'bull' : p.delta_bias === 'BAISSIER' ? 'bear' : 'neutral';
+  const absText = p.abs_detected ? `✅ ${p.abs_type ?? ''}` : '❌ Aucun';
+
+  const levelsHtml = `
+    <div class="levels-grid">
+      ${p.entry     ? `<div class="level-item"><span class="level-key">Entry</span><span class="level-val entry">${p.entry}</span></div>` : ''}
+      ${p.stop_loss ? `<div class="level-item"><span class="level-key">Stop</span><span class="level-val sl">${p.stop_loss}</span></div>` : ''}
+      ${p.tp1       ? `<div class="level-item"><span class="level-key">TP1</span><span class="level-val tp">${p.tp1}</span></div>` : ''}
+      ${p.tp2       ? `<div class="level-item"><span class="level-key">TP2</span><span class="level-val tp">${p.tp2}</span></div>` : ''}
+      ${p.key_support    ? `<div class="level-item"><span class="level-key">Support</span><span class="level-val neutral">${p.key_support}</span></div>` : ''}
+      ${p.key_resistance ? `<div class="level-item"><span class="level-key">Résist.</span><span class="level-val neutral">${p.key_resistance}</span></div>` : ''}
+      ${p.poc            ? `<div class="level-item"><span class="level-key">POC</span><span class="level-val neutral">${p.poc}</span></div>` : ''}
+    </div>`;
+
+  const warningsHtml = p.warnings?.length
+    ? `<div class="warnings">${p.warnings.map(w => `<div class="warning-item">⚠ ${w}</div>`).join('')}</div>` : '';
+
+  document.getElementById('signalContainer').innerHTML = `
+    <div class="signal-main ${p.signal}">
+
+      <div class="signal-top">
+        <div>
+          <div class="signal-asset">${p.asset ?? '—'}</div>
+          <div class="signal-tf">${p.timeframe ?? ''}</div>
+        </div>
+        <div class="signal-badge ${p.signal}">${p.signal}</div>
+      </div>
+
+      <div class="conf-row">
+        <span class="conf-label">Confiance</span>
+        <div class="conf-bar"><div class="conf-fill ${confClass}" style="width:${p.confidence}%"></div></div>
+        <span class="conf-value" style="color:var(--${p.confidence>=70?'buy':p.confidence>=45?'wait':'sell'})">${p.confidence}%</span>
+      </div>
+
+      <div class="signal-synth">${p.synthesis ?? ''}</div>
+
+      <div class="metrics-grid">
+        <div class="metric">
+          <div class="metric-label">Delta Bias</div>
+          <div class="metric-value ${deltaClass}">${p.delta_bias ?? '—'}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Dernier Δ</div>
+          <div class="metric-value ${deltaClass}">${p.delta_last ?? '—'}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Signal ABS</div>
+          <div class="metric-value ${p.abs_detected ? (p.abs_type==='HAUSSIER'?'bull':'bear') : 'neutral'}">${absText}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">BUY / SELL sig.</div>
+          <div class="metric-value"><span style="color:var(--buy)">${p.buy_signals ?? 0}</span> / <span style="color:var(--sell)">${p.sell_signals ?? 0}</span></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Score OrderFlow</div>
+          <div class="metric-value ${confClass==='high'?'bull':confClass==='medium'?'neutral':'bear'}">${p.orderflow_score ?? '—'}/100</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Signal le + fort</div>
+          <div class="metric-value neutral">${p.strongest_signal_d ?? '—'}</div>
+        </div>
+      </div>
+
+      ${(p.entry || p.stop_loss || p.tp1) ? `
+        <div>
+          <div class="card-title" style="margin-bottom:8px;">📍 Niveaux</div>
+          ${levelsHtml}
+        </div>` : ''}
+
+      ${warningsHtml}
+
+      <div style="font-size:10px;color:var(--muted);text-align:right;">${new Date(p.timestamp).toLocaleTimeString('fr-FR')}</div>
+    </div>`;
+
+  setStatus(`✅ Analyse reçue — ${p.signal} sur ${p.asset ?? '?'} (${p.confidence}%)`);
+  addHistory(p);
+}
+
+function onError(msg) {
+  setAnalyzing(false);
+  setWsStatus('connected');
+  setStatus('❌ ' + msg, true);
+  document.getElementById('signalContainer').innerHTML = `
+    <div class="waiting-state" style="color:var(--sell)">
+      <div class="waiting-icon">⚠️</div>
+      <div class="waiting-text">${msg}</div>
+    </div>`;
+}
+
+// ── Historique ────────────────────────────────────────────────────────────────
+const localHistory = [];
+function addHistory(p) {
+  localHistory.unshift(p);
+  renderHistory();
+}
+
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  if (!localHistory.length) {
+    list.innerHTML = '<div class="empty-history">Aucune analyse pour l\'instant</div>';
+    document.getElementById('histCount').textContent = '';
+    return;
+  }
+  document.getElementById('histCount').textContent = `(${localHistory.length})`;
+  list.innerHTML = localHistory.slice(0, 30).map(p => `
+    <div class="history-item">
+      <span class="h-badge ${p.signal}">${p.signal}</span>
+      <span class="h-asset">${p.asset ?? '—'}</span>
+      <span class="h-conf">${p.confidence}%</span>
+      <span class="h-synth" title="${p.synthesis ?? ''}">${p.synthesis ?? '—'}</span>
+      <span class="h-time">${new Date(p.timestamp).toLocaleTimeString('fr-FR')}</span>
+    </div>`).join('');
+}
+
+// ── Statut ────────────────────────────────────────────────────────────────────
+function setStatus(msg, isError = false) {
+  const bar = document.getElementById('statusBar');
+  bar.className = 'status-bar' + (isError ? ' error' : '');
+  document.getElementById('statusText').textContent = msg;
+}
+
+// Charge l'historique serveur au démarrage
+fetch('/api/history').then(r => r.json()).then(data => {
+  data.forEach(p => { if (p.timestamp) localHistory.push(p); });
+  renderHistory();
+}).catch(() => {});
+</script>
+</body>
+</html>
