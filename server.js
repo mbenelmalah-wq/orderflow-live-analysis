@@ -57,58 +57,67 @@ SYMBOLE & TIMEFRAME :
   Lis le nom exact de l'instrument en haut à gauche (ex : GC JUN26, ES JUN26, NQ JUN26...)
   Lis la gamme visible (ex : Gamme de 19, 5min...)
 
-LECTURE DES 5 DERNIÈRES BOUGIES (de droite à gauche) :
-  Pour chaque bougie, note :
-  - Couleur dominante de la boîte footprint (vert = acheteurs / rouge = vendeurs)
-  - Valeur Δ affichée (ex: Δ+43, Δ-65) — lis le chiffre exact sur l'image
-  - Présence d'un signal BUY/SELL avec la valeur D= (ex: BUY D=18)
-  - Présence d'un signal ABS
+IDENTIFICATION DU TYPE DE CHART :
+  TYPE A — Belkhayate OrderFlow : valeurs Δ écrites SUR chaque bougie (ex: "Δ-65"), footprint coloré par bougie
+  TYPE B — Order Flows Trader : tableau de lignes en BAS du chart (lignes Delta, Max.Delta, Min.Delta, Cum.Delta, Volume)
+  Identifie le type avant de lire les valeurs.
 
-DELTA ANALYSIS :
-  Δ positif → agressifs acheteurs > vendeurs → pression haussière
-  Δ négatif → agressifs vendeurs > acheteurs → pression baissière
-  Tendance : les Δ augmentent ? diminuent ? alternent ?
-  Divergence delta = prix baisse MAIS Δ monte → retournement haussier imminent
-  Divergence delta = prix monte MAIS Δ baisse → retournement baissier imminent
+LECTURE DU DELTA — RÈGLE ABSOLUE SUR L'ORDRE CHRONOLOGIQUE :
+  Les bougies s'affichent de GAUCHE (plus ancien) à DROITE (plus récent).
+  La bougie la plus à DROITE = la plus récente = le dernier delta.
+  RÈGLE : lis les deltas de gauche à droite. Le dernier chiffre de ta séquence = la bougie la plus récente (droite).
+  INTERDIT : ne jamais mettre un delta d'une bougie ancienne (gauche) après un delta récent (droite).
+  Exemple correct : si tu vois ...,-22, -39, -3, -2, 10 de gauche à droite → séquence = "-22, -39, -3, -2, 10"
+  Exemple FAUX : "-39, -3, -2, 10, -22" (met -22 à la fin alors qu'il est avant -39 sur le chart)
 
-SIGNAUX BUY / SELL (flèches colorées) :
-  BUY D=X : signal haussier, D= force de la divergence (>10 fort, >20 très fort)
-  Plusieurs BUY consécutifs sans SELL entre eux = tendance haussière confirmée
-  Compte exactement combien de BUY et SELL sont visibles
+POUR TYPE A (Belkhayate OrderFlow — Δ sur les bougies) :
+  Lis les 5 dernières valeurs Δ de gauche à droite sur les bougies (de la 5ème avant-dernière vers la dernière)
+  Signals BUY/SELL : flèches avec "BUY D=X" ou "SELL D=X" → D= force de divergence
+  ABS = signal d'absorption institutionnelle (prioritaire)
 
-SIGNAUX ABS (Absorption institutionnelle) :
-  ABS = un gros acteur absorbe tous les ordres dans une direction
-  ABS vert en bas d'une zone = acheteurs institutionnels qui absorbent les vendeurs
-  ABS rouge en haut d'une zone = vendeurs institutionnels qui absorbent les acheteurs
-  C'est le signal le plus fort — prioritaire sur tout le reste
+POUR TYPE B (Order Flows Trader — tableau en bas) :
+  La ligne "Delta" = volume agressif net par bougie (positif = acheteurs, négatif = vendeurs)
+  La ligne "Cum. Delta" = delta cumulé (tendance longue)
+  La ligne "Volume" = volume total par bougie
+  Les flèches VERTES ↑ sur le chart = signaux BUY
+  Les flèches ROUGES ↓ sur le chart = signaux SELL
+  La flèche BLEUE ↑ = signal BUY fort (institutionnel)
+  Les rectangles colorés sur les bougies = zones de fort volume (vert = acheteurs, rouge = vendeurs)
+  Lis les 8 derniers deltas dans la ligne "Delta" de gauche à droite.
 
-TABLEAU FOOTPRINT EN BAS :
-  Lis les nombres dans les cellules : vert intense = fort acheteur, rouge intense = fort vendeur
-  Identifie le niveau avec le PLUS GRAND nombre = POC (niveau de plus fort volume)
-  Les clusters de volume = zones de support/résistance réelles
+DANS LES DEUX CAS :
+  Δ positif → pression acheteur
+  Δ négatif → pression vendeur
+  Séquence croissante vers positif → momentum haussier
+  Séquence croissante vers négatif → momentum baissier
+  Cum. Delta qui baisse avec prix qui baisse = tendance baissière confirmée
 
 ════════════════════════════════════════════════════════
 ÉTAPE 2 — LOGIQUE ORDERFLOW : POURQUOI UNE OPPORTUNITÉ ?
 ════════════════════════════════════════════════════════
 
-Explique la LOGIQUE complète en analysant ces 4 éléments :
-
 A) DÉSÉQUILIBRE OFFRE/DEMANDE :
-   Y a-t-il plus d'agressifs acheteurs ou vendeurs sur les dernières bougies ?
-   Le déséquilibre est-il croissant (accélération) ou décroissant (épuisement) ?
+   Regarde les dernières bougies : les deltas sont-ils majoritairement positifs ou négatifs ?
+   Le Cum. Delta (si visible) monte ou descend ? C'est la pression nette accumulée.
+   Le volume augmente-t-il dans la direction du mouvement ? (confirmation) ou diminue ? (essoufflement)
 
-B) ABSORPTION INSTITUTIONNELLE :
-   Y a-t-il un signal ABS ? À quel niveau de prix ? Que signifie-t-il ?
-   Un ABS sur support = un institutionnel ne laissera pas le prix descendre sous ce niveau.
-   Un ABS sur résistance = un institutionnel bloque la hausse.
+B) SIGNAUX DIRECTIONNELS :
+   TYPE A : compte signaux BUY D=X vs SELL D=X sur les 10 dernières bougies
+   TYPE B : compte flèches vertes ↑ vs rouges ↓ vs bleues ↑ sur les 10 dernières bougies
+   La flèche bleue = signal institutionnel fort → très haut poids
+   Plusieurs signaux consécutifs dans même sens = confirmation de tendance
 
 C) DIVERGENCE DELTA :
-   Le prix et le delta vont-ils dans le même sens (confirmation) ou sens opposé (divergence) ?
-   Une divergence = signal d'essoufflement → retournement probable.
+   Prix monte + Delta baisse (ou Cum.Delta baisse) = divergence bearish → retournement baissier probable
+   Prix baisse + Delta monte (ou Cum.Delta monte) = divergence bullish → retournement haussier probable
+   Prix et Delta dans même sens = tendance confirmée, continuer dans cette direction
 
-D) CONFLUENCE :
-   Combien d'éléments convergent dans la même direction ?
-   3+ éléments convergents = opportunité haute probabilité
+D) CONFLUENCE — compte les éléments qui convergent :
+   1. Direction des derniers deltas (positifs ou négatifs)
+   2. Signaux directionnels (BUY/SELL ou flèches)
+   3. Divergence ou confirmation
+   4. Cum. Delta cohérent avec prix
+   3-4 éléments convergents = opportunité haute probabilité → BUY ou SELL
    1-2 éléments = signal faible → ATTENDRE
 
 ════════════════════════════════════════════════════════
